@@ -1,0 +1,93 @@
+<!-- saved from url=(0014)about:internet -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>Features.as</title>
+<link rel="stylesheet" type="text/css" href="../../../../../SourceStyles.css"/>
+</head>
+
+<body><pre><span class="ActionScriptComment">/*
+* Copyright (c) 2006-2007 Erin Catto http://www.gphysics.com
+*
+* This software is provided 'as-is', without any express or implied
+* warranty.  In no event will the authors be held liable for any damages
+* arising from the use of this software.
+* Permission is granted to anyone to use this software for any purpose,
+* including commercial applications, and to alter it and redistribute it
+* freely, subject to the following restrictions:
+* 1. The origin of this software must not be misrepresented; you must not
+* claim that you wrote the original software. If you use this software
+* in a product, an acknowledgment in the product documentation would be
+* appreciated but is not required.
+* 2. Altered source versions must be plainly marked as such, and must not be
+* misrepresented as being the original software.
+* 3. This notice may not be removed or altered from any source distribution.
+*/</span>
+
+<span class="ActionScriptpackage">package</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span> <span class="ActionScriptBracket/Brace">{</span>
+    
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2internal</span>;
+<span class="ActionScriptReserved">use</span> <span class="ActionScriptReserved">namespace</span> <span class="ActionScriptDefault_Text">b2internal</span>;
+
+<span class="ActionScriptASDoc">/**
+* We use contact ids to facilitate warm starting.
+*/</span>
+<span class="ActionScriptReserved">public</span> <span class="ActionScriptclass">class</span> <span class="ActionScriptDefault_Text">Features</span>
+<span class="ActionScriptBracket/Brace">{</span>
+    <span class="ActionScriptASDoc">/**
+    * The edge that defines the outward contact normal.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptReserved">get</span> <span class="ActionScriptDefault_Text">referenceEdge</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">int</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">_referenceEdge</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptReserved">set</span> <span class="ActionScriptDefault_Text">referenceEdge</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">value</span>:<span class="ActionScriptDefault_Text">int</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">_referenceEdge</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">value</span>;
+        <span class="ActionScriptDefault_Text">_m_id</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">_key</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">_m_id</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">_key</span> <span class="ActionScriptOperator">&amp;</span> 0xffffff00<span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">|</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">_referenceEdge</span> <span class="ActionScriptOperator">&amp;</span> 0x000000ff<span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">_referenceEdge</span>:<span class="ActionScriptDefault_Text">int</span>;
+    
+    <span class="ActionScriptASDoc">/**
+    * The edge most anti-parallel to the reference edge.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptReserved">get</span> <span class="ActionScriptDefault_Text">incidentEdge</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">int</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">_incidentEdge</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptReserved">set</span> <span class="ActionScriptDefault_Text">incidentEdge</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">value</span>:<span class="ActionScriptDefault_Text">int</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">_incidentEdge</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">value</span>;
+        <span class="ActionScriptDefault_Text">_m_id</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">_key</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">_m_id</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">_key</span> <span class="ActionScriptOperator">&amp;</span> 0xffff00ff<span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">|</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">_incidentEdge</span> <span class="ActionScriptOperator">&lt;&lt;</span> 8<span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">&amp;</span> 0x0000ff00<span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">_incidentEdge</span>:<span class="ActionScriptDefault_Text">int</span>;
+    
+    <span class="ActionScriptASDoc">/**
+    * The vertex (0 or 1) on the incident edge that was clipped.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptReserved">get</span> <span class="ActionScriptDefault_Text">incidentVertex</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">int</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">_incidentVertex</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptReserved">set</span> <span class="ActionScriptDefault_Text">incidentVertex</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">value</span>:<span class="ActionScriptDefault_Text">int</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">_incidentVertex</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">value</span>;
+        <span class="ActionScriptDefault_Text">_m_id</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">_key</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">_m_id</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">_key</span> <span class="ActionScriptOperator">&amp;</span> 0xff00ffff<span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">|</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">_incidentVertex</span> <span class="ActionScriptOperator">&lt;&lt;</span> 16<span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">&amp;</span> 0x00ff0000<span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">_incidentVertex</span>:<span class="ActionScriptDefault_Text">int</span>;
+    
+    <span class="ActionScriptASDoc">/**
+    * A value of 1 indicates that the reference edge is on shape2.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptReserved">get</span> <span class="ActionScriptDefault_Text">flip</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">int</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">_flip</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptReserved">set</span> <span class="ActionScriptDefault_Text">flip</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">value</span>:<span class="ActionScriptDefault_Text">int</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">_flip</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">value</span>;
+        <span class="ActionScriptDefault_Text">_m_id</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">_key</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">_m_id</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">_key</span> <span class="ActionScriptOperator">&amp;</span> 0x00ffffff<span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">|</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">_flip</span> <span class="ActionScriptOperator">&lt;&lt;</span> 24<span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">&amp;</span> 0xff000000<span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">_flip</span>:<span class="ActionScriptDefault_Text">int</span>;
+    
+    
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">_m_id</span>:<span class="ActionScriptDefault_Text">b2ContactID</span>;
+<span class="ActionScriptBracket/Brace">}</span>;
+
+
+<span class="ActionScriptBracket/Brace">}</span>
+</pre></body>
+</html>

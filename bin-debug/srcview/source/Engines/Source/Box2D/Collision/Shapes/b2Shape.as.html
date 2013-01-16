@@ -1,0 +1,185 @@
+<!-- saved from url=(0014)about:internet -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>b2Shape.as</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../SourceStyles.css"/>
+</head>
+
+<body><pre><span class="ActionScriptComment">/*
+* Copyright (c) 2006-2007 Erin Catto http://www.gphysics.com
+*
+* This software is provided 'as-is', without any express or implied
+* warranty.  In no event will the authors be held liable for any damages
+* arising from the use of this software.
+* Permission is granted to anyone to use this software for any purpose,
+* including commercial applications, and to alter it and redistribute it
+* freely, subject to the following restrictions:
+* 1. The origin of this software must not be misrepresented; you must not
+* claim that you wrote the original software. If you use this software
+* in a product, an acknowledgment in the product documentation would be
+* appreciated but is not required.
+* 2. Altered source versions must be plainly marked as such, and must not be
+* misrepresented as being the original software.
+* 3. This notice may not be removed or altered from any source distribution.
+*/</span>
+
+<span class="ActionScriptpackage">package</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Shapes</span><span class="ActionScriptBracket/Brace">{</span>
+
+
+
+
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2internal</span>;
+<span class="ActionScriptReserved">use</span> <span class="ActionScriptReserved">namespace</span> <span class="ActionScriptDefault_Text">b2internal</span>;
+
+
+
+<span class="ActionScriptASDoc">/**
+* A shape is used for collision detection. Shapes are created in b2Body.
+* You can use shape for collision detection before they are attached to the world.
+* @warning you cannot reuse shapes.
+*/</span>
+<span class="ActionScriptReserved">public</span> <span class="ActionScriptclass">class</span> <span class="ActionScriptDefault_Text">b2Shape</span>
+<span class="ActionScriptBracket/Brace">{</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Clone the shape
+     */</span>
+    <span class="ActionScriptDefault_Text">virtual</span> <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Copy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">b2Shape</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptComment">//var s:b2Shape = new b2Shape();
+</span>        <span class="ActionScriptComment">//s.Set(this);
+</span>        <span class="ActionScriptComment">//return s;
+</span>        <span class="ActionScriptReserved">return</span> <span class="ActionScriptReserved">null</span>; <span class="ActionScriptComment">// Abstract type
+</span>    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Assign the properties of anther shape to this
+     */</span>
+    <span class="ActionScriptDefault_Text">virtual</span> <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Set</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">other</span>:<span class="ActionScriptDefault_Text">b2Shape</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptComment">//Don't copy m_type?
+</span>        <span class="ActionScriptComment">//m_type = other.m_type;
+</span>        <span class="ActionScriptDefault_Text">m_radius</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">other</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_radius</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+    * Get the type of this shape. You can use this to down cast to the concrete shape.
+    * @return the shape type.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetType</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptDefault_Text">int</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">m_type</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+
+    <span class="ActionScriptASDoc">/**
+    * Test a point for containment in this shape. This only works for convex shapes.
+    * @param xf the shape world transform.
+    * @param p a point in world coordinates.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptDefault_Text">virtual</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">TestPoint</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">xf</span>:<span class="ActionScriptDefault_Text">b2Transform</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">p</span>:<span class="ActionScriptDefault_Text">b2Vec2</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptDefault_Text">Boolean</span> <span class="ActionScriptBracket/Brace">{</span><span class="ActionScriptReserved">return</span> <span class="ActionScriptReserved">false</span><span class="ActionScriptBracket/Brace">}</span>;
+
+    <span class="ActionScriptASDoc">/**
+     * Cast a ray against this shape.
+     * @param output the ray-cast results.
+     * @param input the ray-cast input parameters.
+     * @param transform the transform to be applied to the shape.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptDefault_Text">virtual</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">RayCast</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">output</span>:<span class="ActionScriptDefault_Text">b2RayCastOutput</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">input</span>:<span class="ActionScriptDefault_Text">b2RayCastInput</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">transform</span>:<span class="ActionScriptDefault_Text">b2Transform</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">Boolean</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptReserved">false</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+
+    <span class="ActionScriptASDoc">/**
+    * Given a transform, compute the associated axis aligned bounding box for this shape.
+    * @param aabb returns the axis aligned box.
+    * @param xf the world transform of the shape.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptDefault_Text">virtual</span> <span class="ActionScriptfunction">function</span>  <span class="ActionScriptDefault_Text">ComputeAABB</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">aabb</span>:<span class="ActionScriptDefault_Text">b2AABB</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">xf</span>:<span class="ActionScriptDefault_Text">b2Transform</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span> {};
+
+    <span class="ActionScriptASDoc">/**
+    * Compute the mass properties of this shape using its dimensions and density.
+    * The inertia tensor is computed about the local origin, not the centroid.
+    * @param massData returns the mass data for this shape.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptDefault_Text">virtual</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">ComputeMass</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">massData</span>:<span class="ActionScriptDefault_Text">b2MassData</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">density</span>:<span class="ActionScriptDefault_Text">Number</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span> <span class="ActionScriptBracket/Brace">{</span> <span class="ActionScriptBracket/Brace">}</span>;
+    
+    <span class="ActionScriptASDoc">/**
+     * Compute the volume and centroid of this shape intersected with a half plane
+     * @param normal the surface normal
+     * @param offset the surface offset along normal
+     * @param xf the shape transform
+     * @param c returns the centroid
+     * @return the total volume less than offset along normal
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptDefault_Text">virtual</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">ComputeSubmergedArea</span><span class="ActionScriptBracket/Brace">(</span>
+                <span class="ActionScriptDefault_Text">normal</span>:<span class="ActionScriptDefault_Text">b2Vec2</span><span class="ActionScriptOperator">,</span>
+                <span class="ActionScriptDefault_Text">offset</span>:<span class="ActionScriptDefault_Text">Number</span><span class="ActionScriptOperator">,</span>
+                <span class="ActionScriptDefault_Text">xf</span>:<span class="ActionScriptDefault_Text">b2Transform</span><span class="ActionScriptOperator">,</span>
+                <span class="ActionScriptDefault_Text">c</span>:<span class="ActionScriptDefault_Text">b2Vec2</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptBracket/Brace">{</span> <span class="ActionScriptReserved">return</span> 0; <span class="ActionScriptBracket/Brace">}</span>;
+                
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptReserved">static</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">TestOverlap</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">shape1</span>:<span class="ActionScriptDefault_Text">b2Shape</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">transform1</span>:<span class="ActionScriptDefault_Text">b2Transform</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">shape2</span>:<span class="ActionScriptDefault_Text">b2Shape</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">transform2</span>:<span class="ActionScriptDefault_Text">b2Transform</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">Boolean</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">input</span>:<span class="ActionScriptDefault_Text">b2DistanceInput</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2DistanceInput</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">input</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">proxyA</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2DistanceProxy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">input</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">proxyA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Set</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">shape1</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">input</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">proxyB</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2DistanceProxy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">input</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">proxyB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Set</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">shape2</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">input</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">transformA</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">transform1</span>;
+        <span class="ActionScriptDefault_Text">input</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">transformB</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">transform2</span>;
+        <span class="ActionScriptDefault_Text">input</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">useRadii</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">true</span>;
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">simplexCache</span>:<span class="ActionScriptDefault_Text">b2SimplexCache</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2SimplexCache</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">simplexCache</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">count</span> <span class="ActionScriptOperator">=</span> 0;
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">output</span>:<span class="ActionScriptDefault_Text">b2DistanceOutput</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2DistanceOutput</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">b2Distance</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Distance</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">simplexCache</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">input</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">distance</span>  <span class="ActionScriptOperator">&lt;</span> 10.0 <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">Number</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">MIN_VALUE</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptComment">//--------------- Internals Below -------------------
+</span>    <span class="ActionScriptASDoc">/**
+     * @private
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">b2Shape</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_type</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">e_unknownShape</span>;
+        <span class="ActionScriptDefault_Text">m_radius</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_linearSlop</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptComment">//virtual ~b2Shape();
+</span>    
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_type</span>:<span class="ActionScriptDefault_Text">int</span>;
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_radius</span>:<span class="ActionScriptDefault_Text">Number</span>;
+    
+    <span class="ActionScriptASDoc">/**
+    * The various collision shape types supported by Box2D.
+    */</span>
+    <span class="ActionScriptComment">//enum b2ShapeType
+</span>    <span class="ActionScriptComment">//{
+</span>        <span class="ActionScriptReserved">static</span> <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptReserved">const</span> <span class="ActionScriptDefault_Text">e_unknownShape</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span>     -1;
+        <span class="ActionScriptDefault_Text">static</span> <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptReserved">const</span> <span class="ActionScriptDefault_Text">e_circleShape</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span>     0;
+        <span class="ActionScriptDefault_Text">static</span> <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptReserved">const</span> <span class="ActionScriptDefault_Text">e_polygonShape</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span>     1;
+        <span class="ActionScriptDefault_Text">static</span> <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptReserved">const</span> <span class="ActionScriptDefault_Text">e_edgeShape</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span>       2;
+        <span class="ActionScriptDefault_Text">static</span> <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptReserved">const</span> <span class="ActionScriptDefault_Text">e_shapeTypeCount</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span>     3;
+    <span class="ActionScriptComment">//};
+</span>    
+    <span class="ActionScriptASDoc">/**
+     * Possible return values for TestSegment
+     */</span>
+        <span class="ActionScriptASDoc">/** Return value for TestSegment indicating a hit. */</span>
+        <span class="ActionScriptReserved">static</span> <span class="ActionScriptReserved">public</span> <span class="ActionScriptReserved">const</span> <span class="ActionScriptDefault_Text">e_hitCollide</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> 1;
+        <span class="ActionScriptASDoc">/** Return value for TestSegment indicating a miss. */</span>
+        <span class="ActionScriptReserved">static</span> <span class="ActionScriptReserved">public</span> <span class="ActionScriptReserved">const</span> <span class="ActionScriptDefault_Text">e_missCollide</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> 0;
+        <span class="ActionScriptASDoc">/** Return value for TestSegment indicating that the segment starting point, p1, is already inside the shape. */</span>
+        <span class="ActionScriptReserved">static</span> <span class="ActionScriptReserved">public</span> <span class="ActionScriptReserved">const</span> <span class="ActionScriptDefault_Text">e_startsInsideCollide</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> -1;
+<span class="ActionScriptBracket/Brace">}</span>;
+
+    
+<span class="ActionScriptBracket/Brace">}</span>
+</pre></body>
+</html>

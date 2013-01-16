@@ -1,0 +1,87 @@
+<!-- saved from url=(0014)about:internet -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>b2ContactFilter.as</title>
+<link rel="stylesheet" type="text/css" href="../../../../../SourceStyles.css"/>
+</head>
+
+<body><pre><span class="ActionScriptComment">/*
+* Copyright (c) 2006-2007 Erin Catto http://www.gphysics.com
+*
+* This software is provided 'as-is', without any express or implied
+* warranty.  In no event will the authors be held liable for any damages
+* arising from the use of this software.
+* Permission is granted to anyone to use this software for any purpose,
+* including commercial applications, and to alter it and redistribute it
+* freely, subject to the following restrictions:
+* 1. The origin of this software must not be misrepresented; you must not
+* claim that you wrote the original software. If you use this software
+* in a product, an acknowledgment in the product documentation would be
+* appreciated but is not required.
+* 2. Altered source versions must be plainly marked as such, and must not be
+* misrepresented as being the original software.
+* 3. This notice may not be removed or altered from any source distribution.
+*/</span>
+
+<span class="ActionScriptpackage">package</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptBracket/Brace">{</span>
+
+
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Shapes</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Contacts</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2internal</span>;
+<span class="ActionScriptReserved">use</span> <span class="ActionScriptReserved">namespace</span> <span class="ActionScriptDefault_Text">b2internal</span>;
+
+
+<span class="ActionScriptASDoc">/**
+* Implement this class to provide collision filtering. In other words, you can implement
+* this class if you want finer control over contact creation.
+*/</span>
+<span class="ActionScriptReserved">public</span> <span class="ActionScriptclass">class</span> <span class="ActionScriptDefault_Text">b2ContactFilter</span>
+<span class="ActionScriptBracket/Brace">{</span>
+
+    <span class="ActionScriptASDoc">/**
+    * Return true if contact calculations should be performed between these two fixtures.
+    * @warning for performance reasons this is only called when the AABBs begin to overlap.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptDefault_Text">virtual</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">ShouldCollide</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">fixtureA</span>:<span class="ActionScriptDefault_Text">b2Fixture</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">fixtureB</span>:<span class="ActionScriptDefault_Text">b2Fixture</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptDefault_Text">Boolean</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">filter1</span>:<span class="ActionScriptDefault_Text">b2FilterData</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">fixtureA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetFilterData</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">filter2</span>:<span class="ActionScriptDefault_Text">b2FilterData</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">fixtureB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetFilterData</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">filter1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">groupIndex</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">filter2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">groupIndex</span> <span class="ActionScriptOperator">&amp;&amp;</span> <span class="ActionScriptDefault_Text">filter1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">groupIndex</span> <span class="ActionScriptOperator">!=</span> 0<span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">filter1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">groupIndex</span> <span class="ActionScriptOperator">&gt;</span> 0;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">collide</span>:<span class="ActionScriptDefault_Text">Boolean</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">filter1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">maskBits</span> <span class="ActionScriptOperator">&amp;</span> <span class="ActionScriptDefault_Text">filter2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">categoryBits</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">!=</span> 0 <span class="ActionScriptOperator">&amp;&amp;</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">filter1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">categoryBits</span> <span class="ActionScriptOperator">&amp;</span> <span class="ActionScriptDefault_Text">filter2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">maskBits</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">!=</span> 0;
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">collide</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+    * Return true if the given fixture should be considered for ray intersection.
+    * By default, userData is cast as a b2Fixture and collision is resolved according to ShouldCollide
+    * @see ShouldCollide()
+    * @see b2World#Raycast
+    * @param userData    arbitrary data passed from Raycast or RaycastOne
+    * @param fixture        the fixture that we are testing for filtering
+    * @return a Boolean, with a value of false indicating that this fixture should be ignored.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptDefault_Text">virtual</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">RayCollide</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">userData</span>:<span class="ActionScriptOperator">*</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">fixture</span>:<span class="ActionScriptDefault_Text">b2Fixture</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptDefault_Text">Boolean</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">if</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptOperator">!</span><span class="ActionScriptDefault_Text">userData</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptReserved">return</span> <span class="ActionScriptReserved">true</span>;
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">ShouldCollide</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">userData</span> <span class="ActionScriptReserved">as</span> <span class="ActionScriptDefault_Text">b2Fixture</span><span class="ActionScriptOperator">,</span><span class="ActionScriptDefault_Text">fixture</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptReserved">static</span> <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">b2_defaultFilter</span>:<span class="ActionScriptDefault_Text">b2ContactFilter</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2ContactFilter</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+    
+<span class="ActionScriptBracket/Brace">}</span>;
+
+<span class="ActionScriptBracket/Brace">}</span>
+</pre></body>
+</html>

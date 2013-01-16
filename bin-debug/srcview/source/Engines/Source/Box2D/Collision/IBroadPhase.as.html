@@ -1,0 +1,89 @@
+<!-- saved from url=(0014)about:internet -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>IBroadPhase.as</title>
+<link rel="stylesheet" type="text/css" href="../../../../../SourceStyles.css"/>
+</head>
+
+<body><pre><span class="ActionScriptpackage">package</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span> 
+<span class="ActionScriptBracket/Brace">{</span>
+    <span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2Vec2</span>;
+    <span class="ActionScriptASDoc">/**
+     * Interface for objects tracking overlap of many AABBs.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptinterface">interface</span> <span class="ActionScriptDefault_Text">IBroadPhase</span> 
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptASDoc">/**
+         * Create a proxy with an initial AABB. Pairs are not reported until
+         * UpdatePairs is called.
+         */</span>
+        <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">CreateProxy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">aabb</span>:<span class="ActionScriptDefault_Text">b2AABB</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">userData</span>:<span class="ActionScriptOperator">*</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptOperator">*</span>;
+        
+        <span class="ActionScriptASDoc">/**
+         * Destroy a proxy. It is up to the client to remove any pairs.
+         */</span>
+        <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">DestroyProxy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span>:<span class="ActionScriptOperator">*</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>;
+        
+        <span class="ActionScriptASDoc">/**
+         * Call MoveProxy as many times as you like, then when you are done
+         * call UpdatePairs to finalized the proxy pairs (for your time step).
+         */</span>
+        <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">MoveProxy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span>:<span class="ActionScriptOperator">*</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">aabb</span>:<span class="ActionScriptDefault_Text">b2AABB</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">displacement</span>:<span class="ActionScriptDefault_Text">b2Vec2</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>;
+        
+        <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">TestOverlap</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxyA</span>:<span class="ActionScriptOperator">*</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">proxyB</span>:<span class="ActionScriptOperator">*</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">Boolean</span>;
+        
+        <span class="ActionScriptASDoc">/**
+         * Get user data from a proxy. Returns null if the proxy is invalid.
+         */</span>
+        <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetUserData</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span>:<span class="ActionScriptOperator">*</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptOperator">*</span>;
+        
+        <span class="ActionScriptASDoc">/**
+         * Get the fat AABB for a proxy.
+         */</span>
+        <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetFatAABB</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span>:<span class="ActionScriptOperator">*</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">b2AABB</span>;
+        
+        <span class="ActionScriptASDoc">/**
+         * Get the number of proxies.
+         */</span>
+        <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetProxyCount</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">int</span>;
+        
+        <span class="ActionScriptASDoc">/**
+         * Update the pairs. This results in pair callbacks. This can only add pairs.
+         */</span>
+        <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">UpdatePairs</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">callback</span>:<span class="ActionScriptDefault_Text">Function</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>;
+        
+        <span class="ActionScriptASDoc">/**
+         * Query an AABB for overlapping proxies. The callback class
+         * is called with each proxy that overlaps 
+         * the supplied AABB, and return a Boolean indicating if 
+         * the broaphase should proceed to the next match.
+         * @param callback This function should be a function matching signature
+         * &lt;code&gt;function Callback(proxy:*):Boolean&lt;/code&gt;
+         */</span>
+        <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Query</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">callback</span>:<span class="ActionScriptDefault_Text">Function</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">aabb</span>:<span class="ActionScriptDefault_Text">b2AABB</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>;
+        
+        <span class="ActionScriptASDoc">/**
+         * Ray-cast  agains the proxies in the tree. This relies on the callback
+         * to perform exact ray-cast in the case where the proxy contains a shape
+         * The callback also performs any collision filtering
+         * @param callback This function should be a function matching signature
+         * &lt;code&gt;function Callback(subInput:b2RayCastInput, proxy:*):Number&lt;/code&gt;
+         * Where the returned number is the new value for maxFraction
+         */</span>
+        <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">RayCast</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">callback</span>:<span class="ActionScriptDefault_Text">Function</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">input</span>:<span class="ActionScriptDefault_Text">b2RayCastInput</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>;
+        
+        <span class="ActionScriptASDoc">/**
+         * For debugging, throws in invariants have been broken
+         */</span>
+        <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Validate</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>;
+        
+        <span class="ActionScriptASDoc">/**
+         * Give the broadphase a chance for structural optimizations
+         */</span>
+        <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Rebalance</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">iterations</span>:<span class="ActionScriptDefault_Text">int</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+<span class="ActionScriptBracket/Brace">}</span></pre></body>
+</html>

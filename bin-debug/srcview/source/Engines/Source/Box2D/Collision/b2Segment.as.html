@@ -1,0 +1,170 @@
+<!-- saved from url=(0014)about:internet -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>b2Segment.as</title>
+<link rel="stylesheet" type="text/css" href="../../../../../SourceStyles.css"/>
+</head>
+
+<body><pre><span class="ActionScriptComment">/*
+* Copyright (c) 2006-2007 Erin Catto http://www.gphysics.com
+*
+* This software is provided 'as-is', without any express or implied
+* warranty.  In no event will the authors be held liable for any damages
+* arising from the use of this software.
+* Permission is granted to anyone to use this software for any purpose,
+* including commercial applications, and to alter it and redistribute it
+* freely, subject to the following restrictions:
+* 1. The origin of this software must not be misrepresented; you must not
+* claim that you wrote the original software. If you use this software
+* in a product, an acknowledgment in the product documentation would be
+* appreciated but is not required.
+* 2. Altered source versions must be plainly marked as such, and must not be
+* misrepresented as being the original software.
+* 3. This notice may not be removed or altered from any source distribution.
+*/</span>
+
+<span class="ActionScriptpackage">package</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span><span class="ActionScriptBracket/Brace">{</span>
+    
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2internal</span>;
+<span class="ActionScriptReserved">use</span> <span class="ActionScriptReserved">namespace</span> <span class="ActionScriptDefault_Text">b2internal</span>;
+
+<span class="ActionScriptASDoc">/**
+* A line in space between two given vertices.
+*/</span>
+<span class="ActionScriptReserved">public</span> <span class="ActionScriptclass">class</span> <span class="ActionScriptDefault_Text">b2Segment</span>
+<span class="ActionScriptBracket/Brace">{</span>
+    <span class="ActionScriptASDoc">/**
+    * Ray cast against this segment with another segment
+    * @param xf the shape world transform.
+    * @param lambda returns the hit fraction. You can use this to compute the contact point
+    * p = (1 - lambda) * segment.p1 + lambda * segment.p2.
+    * @param normal returns the normal at the contact point. If there is no intersection, the normal
+    * is not set.
+    * @param segment defines the begin and end point of the ray cast.
+    * @param maxLambda a number typically in the range [0,1].
+    * @return true if there was an intersection.
+    * @see Box2D.Collision.Shapes.b2Shape#TestSegment
+    */</span>
+    <span class="ActionScriptComment">// Collision Detection in Interactive 3D Environments by Gino van den Bergen
+</span>    <span class="ActionScriptComment">// From Section 3.4.1
+</span>    <span class="ActionScriptComment">// x = mu1 * p1 + mu2 * p2
+</span>    <span class="ActionScriptComment">// mu1 + mu2 = 1 &amp;&amp; mu1 &gt;= 0 &amp;&amp; mu2 &gt;= 0
+</span>    <span class="ActionScriptComment">// mu1 = 1 - mu2;
+</span>    <span class="ActionScriptComment">// x = (1 - mu2) * p1 + mu2 * p2
+</span>    <span class="ActionScriptComment">//   = p1 + mu2 * (p2 - p1)
+</span>    <span class="ActionScriptComment">// x = s + a * r (s := start, r := end - start)
+</span>    <span class="ActionScriptComment">// s + a * r = p1 + mu2 * d (d := p2 - p1)
+</span>    <span class="ActionScriptComment">// -a * r + mu2 * d = b (b := s - p1)
+</span>    <span class="ActionScriptComment">// [-r d] * [a; mu2] = b
+</span>    <span class="ActionScriptComment">// Cramer's rule:
+</span>    <span class="ActionScriptComment">// denom = det[-r d]
+</span>    <span class="ActionScriptComment">// a = det[b d] / denom
+</span>    <span class="ActionScriptComment">// mu2 = det[-r b] / denom
+</span>    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">TestSegment</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">lambda</span>:<span class="ActionScriptDefault_Text">Array</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptComment">// float pointer
+</span>                                <span class="ActionScriptDefault_Text">normal</span>:<span class="ActionScriptDefault_Text">b2Vec2</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptComment">// pointer
+</span>                                <span class="ActionScriptDefault_Text">segment</span>:<span class="ActionScriptDefault_Text">b2Segment</span><span class="ActionScriptOperator">,</span> 
+                                <span class="ActionScriptDefault_Text">maxLambda</span>:<span class="ActionScriptDefault_Text">Number</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptDefault_Text">Boolean</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptComment">//b2Vec2 s = segment.p1;
+</span>        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">s</span>:<span class="ActionScriptDefault_Text">b2Vec2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">segment</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">p1</span>;
+        <span class="ActionScriptComment">//b2Vec2 r = segment.p2 - s;
+</span>        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">rX</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">segment</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">p2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">s</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span>;
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">rY</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">segment</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">p2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">s</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span>;
+        <span class="ActionScriptComment">//b2Vec2 d = p2 - p1;
+</span>        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">dX</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">p2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span>;
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">dY</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">p2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span>;
+        <span class="ActionScriptComment">//b2Vec2 n = b2Cross(d, 1.0f);
+</span>        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">nX</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">dY</span>;
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">nY</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptOperator">-</span><span class="ActionScriptDefault_Text">dX</span>;
+        
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">k_slop</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> 100.0 <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">Number</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">MIN_VALUE</span>;
+        <span class="ActionScriptComment">//var denom:Number = -b2Dot(r, n);
+</span>        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">denom</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptOperator">-</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">rX</span><span class="ActionScriptOperator">*</span><span class="ActionScriptDefault_Text">nX</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">rY</span><span class="ActionScriptOperator">*</span><span class="ActionScriptDefault_Text">nY</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptComment">// Cull back facing collision and ignore parallel segments.
+</span>        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">denom</span> <span class="ActionScriptOperator">&gt;</span> <span class="ActionScriptDefault_Text">k_slop</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptComment">// Does the segment intersect the infinite line associated with this segment?
+</span>            <span class="ActionScriptComment">//b2Vec2 b = s - p1;
+</span>            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">bX</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">s</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">bY</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">s</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span>;
+            <span class="ActionScriptComment">//var a:Number = b2Dot(b, n);
+</span>            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">a</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">bX</span><span class="ActionScriptOperator">*</span><span class="ActionScriptDefault_Text">nX</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">bY</span><span class="ActionScriptOperator">*</span><span class="ActionScriptDefault_Text">nY</span><span class="ActionScriptBracket/Brace">)</span>;
+            
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span>0.0 <span class="ActionScriptOperator">&lt;=</span> <span class="ActionScriptDefault_Text">a</span> <span class="ActionScriptOperator">&amp;&amp;</span> <span class="ActionScriptDefault_Text">a</span> <span class="ActionScriptOperator">&lt;=</span> <span class="ActionScriptDefault_Text">maxLambda</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">denom</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">mu2</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptOperator">-</span><span class="ActionScriptDefault_Text">rX</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">bY</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">rY</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">bX</span>;
+                
+                <span class="ActionScriptComment">// Does the segment intersect this segment?
+</span>                <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptOperator">-</span><span class="ActionScriptDefault_Text">k_slop</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">denom</span> <span class="ActionScriptOperator">&lt;=</span> <span class="ActionScriptDefault_Text">mu2</span> <span class="ActionScriptOperator">&amp;&amp;</span> <span class="ActionScriptDefault_Text">mu2</span> <span class="ActionScriptOperator">&lt;=</span> <span class="ActionScriptDefault_Text">denom</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptBracket/Brace">(</span>1.0 <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">k_slop</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptDefault_Text">a</span> <span class="ActionScriptOperator">/=</span> <span class="ActionScriptDefault_Text">denom</span>;
+                    <span class="ActionScriptComment">//n.Normalize();
+</span>                    <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">nLen</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">sqrt</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">nX</span><span class="ActionScriptOperator">*</span><span class="ActionScriptDefault_Text">nX</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">nY</span><span class="ActionScriptOperator">*</span><span class="ActionScriptDefault_Text">nY</span><span class="ActionScriptBracket/Brace">)</span>;
+                    <span class="ActionScriptDefault_Text">nX</span> <span class="ActionScriptOperator">/=</span> <span class="ActionScriptDefault_Text">nLen</span>;
+                    <span class="ActionScriptDefault_Text">nY</span> <span class="ActionScriptOperator">/=</span> <span class="ActionScriptDefault_Text">nLen</span>;
+                    <span class="ActionScriptComment">//*lambda = a;
+</span>                    <span class="ActionScriptDefault_Text">lambda</span><span class="ActionScriptBracket/Brace">[</span>0<span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">a</span>;
+                    <span class="ActionScriptComment">//*normal = n;
+</span>                    <span class="ActionScriptDefault_Text">normal</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Set</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">nX</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">nY</span><span class="ActionScriptBracket/Brace">)</span>;
+                    <span class="ActionScriptReserved">return</span> <span class="ActionScriptReserved">true</span>;
+                <span class="ActionScriptBracket/Brace">}</span>
+            <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptReserved">false</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+    * Extends or clips the segment so that it's ends lie on the boundary of the AABB
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Extend</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">aabb</span>:<span class="ActionScriptDefault_Text">b2AABB</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">ExtendForward</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">ExtendBackward</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+    * @see Extend
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">ExtendForward</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">aabb</span>:<span class="ActionScriptDefault_Text">b2AABB</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">dX</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">p2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptOperator">-</span><span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span>;
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">dY</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">p2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptOperator">-</span><span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span>;
+        
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">lambda</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">min</span><span class="ActionScriptBracket/Brace">(</span>    <span class="ActionScriptDefault_Text">dX</span><span class="ActionScriptOperator">&gt;</span>0<span class="ActionScriptOperator">?</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">upperBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptOperator">-</span><span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptOperator">/</span><span class="ActionScriptDefault_Text">dX</span>: <span class="ActionScriptDefault_Text">dX</span><span class="ActionScriptOperator">&lt;</span>0<span class="ActionScriptOperator">?</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lowerBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptOperator">-</span><span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptOperator">/</span><span class="ActionScriptDefault_Text">dX</span>:<span class="ActionScriptDefault_Text">Number</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">POSITIVE_INFINITY</span><span class="ActionScriptOperator">,</span>
+                                        <span class="ActionScriptDefault_Text">dY</span><span class="ActionScriptOperator">&gt;</span>0<span class="ActionScriptOperator">?</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">upperBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptOperator">-</span><span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptOperator">/</span><span class="ActionScriptDefault_Text">dY</span>: <span class="ActionScriptDefault_Text">dY</span><span class="ActionScriptOperator">&lt;</span>0<span class="ActionScriptOperator">?</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lowerBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptOperator">-</span><span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptOperator">/</span><span class="ActionScriptDefault_Text">dY</span>:<span class="ActionScriptDefault_Text">Number</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">POSITIVE_INFINITY</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptDefault_Text">p2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">dX</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">lambda</span>;
+        <span class="ActionScriptDefault_Text">p2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">dY</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">lambda</span>;
+        
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+    * @see Extend
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">ExtendBackward</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">aabb</span>:<span class="ActionScriptDefault_Text">b2AABB</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">dX</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptOperator">-</span><span class="ActionScriptDefault_Text">p2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptOperator">+</span><span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span>;
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">dY</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptOperator">-</span><span class="ActionScriptDefault_Text">p2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptOperator">+</span><span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span>;
+        
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">lambda</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">min</span><span class="ActionScriptBracket/Brace">(</span>    <span class="ActionScriptDefault_Text">dX</span><span class="ActionScriptOperator">&gt;</span>0<span class="ActionScriptOperator">?</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">upperBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptOperator">-</span><span class="ActionScriptDefault_Text">p2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptOperator">/</span><span class="ActionScriptDefault_Text">dX</span>: <span class="ActionScriptDefault_Text">dX</span><span class="ActionScriptOperator">&lt;</span>0<span class="ActionScriptOperator">?</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lowerBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptOperator">-</span><span class="ActionScriptDefault_Text">p2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptOperator">/</span><span class="ActionScriptDefault_Text">dX</span>:<span class="ActionScriptDefault_Text">Number</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">POSITIVE_INFINITY</span><span class="ActionScriptOperator">,</span>
+                                        <span class="ActionScriptDefault_Text">dY</span><span class="ActionScriptOperator">&gt;</span>0<span class="ActionScriptOperator">?</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">upperBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptOperator">-</span><span class="ActionScriptDefault_Text">p2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptOperator">/</span><span class="ActionScriptDefault_Text">dY</span>: <span class="ActionScriptDefault_Text">dY</span><span class="ActionScriptOperator">&lt;</span>0<span class="ActionScriptOperator">?</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lowerBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptOperator">-</span><span class="ActionScriptDefault_Text">p2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptOperator">/</span><span class="ActionScriptDefault_Text">dY</span>:<span class="ActionScriptDefault_Text">Number</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">POSITIVE_INFINITY</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">p2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">dX</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">lambda</span>;
+        <span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">p2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">dY</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">lambda</span>;
+        
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/** The starting point */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">p1</span>:<span class="ActionScriptDefault_Text">b2Vec2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2Vec2</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptASDoc">/** The ending point */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">p2</span>:<span class="ActionScriptDefault_Text">b2Vec2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2Vec2</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+<span class="ActionScriptBracket/Brace">}</span>;
+
+
+<span class="ActionScriptBracket/Brace">}</span>
+</pre></body>
+</html>

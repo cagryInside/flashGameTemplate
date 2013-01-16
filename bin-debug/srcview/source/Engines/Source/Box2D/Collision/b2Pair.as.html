@@ -1,0 +1,78 @@
+<!-- saved from url=(0014)about:internet -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>b2Pair.as</title>
+<link rel="stylesheet" type="text/css" href="../../../../../SourceStyles.css"/>
+</head>
+
+<body><pre><span class="ActionScriptComment">/*
+* Copyright (c) 2006-2007 Erin Catto http://www.gphysics.com
+*
+* This software is provided 'as-is', without any express or implied
+* warranty.  In no event will the authors be held liable for any damages
+* arising from the use of this software.
+* Permission is granted to anyone to use this software for any purpose,
+* including commercial applications, and to alter it and redistribute it
+* freely, subject to the following restrictions:
+* 1. The origin of this software must not be misrepresented; you must not
+* claim that you wrote the original software. If you use this software
+* in a product, an acknowledgment in the product documentation would be
+* appreciated but is not required.
+* 2. Altered source versions must be plainly marked as such, and must not be
+* misrepresented as being the original software.
+* 3. This notice may not be removed or altered from any source distribution.
+*/</span>
+
+<span class="ActionScriptComment">// The pair manager is used by the broad-phase to quickly add/remove/find pairs
+</span><span class="ActionScriptComment">// of overlapping proxies. It is based closely on code provided by Pierre Terdiman.
+</span><span class="ActionScriptComment">// http://www.codercorner.com/IncrementalSAP.txt
+</span>
+<span class="ActionScriptpackage">package</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span><span class="ActionScriptBracket/Brace">{</span>
+
+
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2internal</span>;
+<span class="ActionScriptReserved">use</span> <span class="ActionScriptReserved">namespace</span> <span class="ActionScriptDefault_Text">b2internal</span>;
+
+
+<span class="ActionScriptASDoc">/**
+ * A Pair represents a pair of overlapping b2Proxy in the broadphse.
+ * @private
+ */</span>
+<span class="ActionScriptReserved">public</span> <span class="ActionScriptclass">class</span> <span class="ActionScriptDefault_Text">b2Pair</span>
+<span class="ActionScriptBracket/Brace">{</span>
+    
+
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">SetBuffered</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span>    <span class="ActionScriptBracket/Brace">{</span> <span class="ActionScriptDefault_Text">status</span> <span class="ActionScriptOperator">|=</span> <span class="ActionScriptDefault_Text">e_pairBuffered</span>; <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">ClearBuffered</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span>    <span class="ActionScriptBracket/Brace">{</span> <span class="ActionScriptDefault_Text">status</span> <span class="ActionScriptOperator">&amp;=</span> <span class="ActionScriptOperator">~</span><span class="ActionScriptDefault_Text">e_pairBuffered</span>; <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">IsBuffered</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">Boolean</span>    <span class="ActionScriptBracket/Brace">{</span> <span class="ActionScriptReserved">return</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">status</span> <span class="ActionScriptOperator">&amp;</span> <span class="ActionScriptDefault_Text">e_pairBuffered</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">e_pairBuffered</span>; <span class="ActionScriptBracket/Brace">}</span>
+
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">SetRemoved</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span>        <span class="ActionScriptBracket/Brace">{</span> <span class="ActionScriptDefault_Text">status</span> <span class="ActionScriptOperator">|=</span> <span class="ActionScriptDefault_Text">e_pairRemoved</span>; <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">ClearRemoved</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span>    <span class="ActionScriptBracket/Brace">{</span> <span class="ActionScriptDefault_Text">status</span> <span class="ActionScriptOperator">&amp;=</span> <span class="ActionScriptOperator">~</span><span class="ActionScriptDefault_Text">e_pairRemoved</span>; <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">IsRemoved</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">Boolean</span>        <span class="ActionScriptBracket/Brace">{</span> <span class="ActionScriptReserved">return</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">status</span> <span class="ActionScriptOperator">&amp;</span> <span class="ActionScriptDefault_Text">e_pairRemoved</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">e_pairRemoved</span>; <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">SetFinal</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span>        <span class="ActionScriptBracket/Brace">{</span> <span class="ActionScriptDefault_Text">status</span> <span class="ActionScriptOperator">|=</span> <span class="ActionScriptDefault_Text">e_pairFinal</span>; <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">IsFinal</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">Boolean</span>        <span class="ActionScriptBracket/Brace">{</span> <span class="ActionScriptReserved">return</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">status</span> <span class="ActionScriptOperator">&amp;</span> <span class="ActionScriptDefault_Text">e_pairFinal</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">e_pairFinal</span>; <span class="ActionScriptBracket/Brace">}</span>
+
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">userData</span>:<span class="ActionScriptOperator">*</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">proxy1</span>:<span class="ActionScriptDefault_Text">b2Proxy</span>;
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">proxy2</span>:<span class="ActionScriptDefault_Text">b2Proxy</span>;
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">next</span>:<span class="ActionScriptDefault_Text">b2Pair</span>;
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">status</span>:<span class="ActionScriptDefault_Text">uint</span>;
+    
+    <span class="ActionScriptComment">// STATIC
+</span>    <span class="ActionScriptReserved">static</span> <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">b2_nullProxy</span>:<span class="ActionScriptDefault_Text">uint</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">USHRT_MAX</span>;
+    
+    <span class="ActionScriptComment">// enum
+</span>    <span class="ActionScriptReserved">static</span> <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">e_pairBuffered</span>:<span class="ActionScriptDefault_Text">uint</span> <span class="ActionScriptOperator">=</span> 0x0001;
+    <span class="ActionScriptReserved">static</span> <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">e_pairRemoved</span>:<span class="ActionScriptDefault_Text">uint</span> <span class="ActionScriptOperator">=</span> 0x0002;
+    <span class="ActionScriptReserved">static</span> <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">e_pairFinal</span>:<span class="ActionScriptDefault_Text">uint</span> <span class="ActionScriptOperator">=</span> 0x0004;
+
+<span class="ActionScriptBracket/Brace">}</span>;
+
+
+<span class="ActionScriptBracket/Brace">}</span></pre></body>
+</html>

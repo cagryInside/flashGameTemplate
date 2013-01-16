@@ -1,0 +1,286 @@
+<!-- saved from url=(0014)about:internet -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>b2PairManager.as</title>
+<link rel="stylesheet" type="text/css" href="../../../../../SourceStyles.css"/>
+</head>
+
+<body><pre><span class="ActionScriptComment">/*
+* Copyright (c) 2006-2007 Erin Catto http://www.gphysics.com
+*
+* This software is provided 'as-is', without any express or implied
+* warranty.  In no event will the authors be held liable for any damages
+* arising from the use of this software.
+* Permission is granted to anyone to use this software for any purpose,
+* including commercial applications, and to alter it and redistribute it
+* freely, subject to the following restrictions:
+* 1. The origin of this software must not be misrepresented; you must not
+* claim that you wrote the original software. If you use this software
+* in a product, an acknowledgment in the product documentation would be
+* appreciated but is not required.
+* 2. Altered source versions must be plainly marked as such, and must not be
+* misrepresented as being the original software.
+* 3. This notice may not be removed or altered from any source distribution.
+*/</span>
+
+<span class="ActionScriptComment">// The pair manager is used by the broad-phase to quickly add/remove/find pairs
+</span><span class="ActionScriptComment">// of overlapping proxies. It is based closely on code provided by Pierre Terdiman.
+</span><span class="ActionScriptComment">// http://www.codercorner.com/IncrementalSAP.txt
+</span>
+<span class="ActionScriptpackage">package</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span><span class="ActionScriptBracket/Brace">{</span>
+
+
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2internal</span>;
+<span class="ActionScriptReserved">use</span> <span class="ActionScriptReserved">namespace</span> <span class="ActionScriptDefault_Text">b2internal</span>;
+
+
+<span class="ActionScriptASDoc">/**
+* @private
+*/</span>
+<span class="ActionScriptReserved">public</span> <span class="ActionScriptclass">class</span> <span class="ActionScriptDefault_Text">b2PairManager</span>
+<span class="ActionScriptBracket/Brace">{</span>
+<span class="ActionScriptComment">//public:
+</span>    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">b2PairManager</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_pairs</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">Array</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_pairBuffer</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">Array</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_pairCount</span> <span class="ActionScriptOperator">=</span> 0;
+        <span class="ActionScriptDefault_Text">m_pairBufferCount</span> <span class="ActionScriptOperator">=</span> 0;
+        <span class="ActionScriptDefault_Text">m_freePair</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptComment">//~b2PairManager();
+</span>    
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Initialize</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">broadPhase</span>:<span class="ActionScriptDefault_Text">b2BroadPhase</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_broadPhase</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">broadPhase</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptComment">/*
+    As proxies are created and moved, many pairs are created and destroyed. Even worse, the same
+    pair may be added and removed multiple times in a single time step of the physics engine. To reduce
+    traffic in the pair manager, we try to avoid destroying pairs in the pair manager until the
+    end of the physics step. This is done by buffering all the RemovePair requests. AddPair
+    requests are processed immediately because we need the hash table entry for quick lookup.
+
+    All user user callbacks are delayed until the buffered pairs are confirmed in Commit.
+    This is very important because the user callbacks may be very expensive and client logic
+    may be harmed if pairs are added and removed within the same time step.
+
+    Buffer a pair for addition.
+    We may add a pair that is not in the pair manager or pair buffer.
+    We may add a pair that is already in the pair manager and pair buffer.
+    If the added pair is not a new pair, then it must be in the pair buffer (because RemovePair was called).
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">AddBufferedPair</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy1</span>:<span class="ActionScriptDefault_Text">b2Proxy</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">proxy2</span>:<span class="ActionScriptDefault_Text">b2Proxy</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptComment">//b2Settings.b2Assert(proxy1 &amp;&amp; proxy2);
+</span>        
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">pair</span>:<span class="ActionScriptDefault_Text">b2Pair</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">AddPair</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy1</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">proxy2</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptComment">// If this pair is not in the pair buffer ...
+</span>        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">IsBuffered</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">false</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptComment">// This must be a newly added pair.
+</span>            <span class="ActionScriptComment">//b2Settings.b2Assert(pair.IsFinal() == false);
+</span>            
+            <span class="ActionScriptComment">// Add it to the pair buffer.
+</span>            <span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SetBuffered</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">m_pairBuffer</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">m_pairBufferCount</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">pair</span>;
+            <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">m_pairBufferCount</span>;
+            <span class="ActionScriptComment">//b2Settings.b2Assert(m_pairBufferCount &lt;= m_pairCount);
+</span>        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptComment">// Confirm this pair for the subsequent call to Commit.
+</span>        <span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">ClearRemoved</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">b2BroadPhase</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">s_validate</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">ValidateBuffer</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptComment">// Buffer a pair for removal.
+</span>    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">RemoveBufferedPair</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy1</span>:<span class="ActionScriptDefault_Text">b2Proxy</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">proxy2</span>:<span class="ActionScriptDefault_Text">b2Proxy</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptComment">//b2Settings.b2Assert(proxy1 &amp;&amp; proxy2);
+</span>        
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">pair</span>:<span class="ActionScriptDefault_Text">b2Pair</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">Find</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy1</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">proxy2</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">pair</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">null</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptComment">// The pair never existed. This is legal (due to collision filtering).
+</span>            <span class="ActionScriptReserved">return</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptComment">// If this pair is not in the pair buffer ...
+</span>        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">IsBuffered</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">false</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptComment">// This must be an old pair.
+</span>            <span class="ActionScriptComment">//b2Settings.b2Assert(pair.IsFinal() == true);
+</span>            
+            <span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SetBuffered</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">m_pairBuffer</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">m_pairBufferCount</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">pair</span>;
+            <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">m_pairBufferCount</span>;
+            
+            <span class="ActionScriptComment">//b2Settings.b2Assert(m_pairBufferCount &lt;= m_pairCount);
+</span>        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SetRemoved</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">b2BroadPhase</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">s_validate</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">ValidateBuffer</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Commit</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">callback</span>:<span class="ActionScriptDefault_Text">Function</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">i</span>:<span class="ActionScriptDefault_Text">int</span>;
+        
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">removeCount</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> 0;
+        
+        <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">m_pairBufferCount</span>; <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">pair</span>:<span class="ActionScriptDefault_Text">b2Pair</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_pairBuffer</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span>;
+            <span class="ActionScriptComment">//b2Settings.b2Assert(pair.IsBuffered());
+</span>            <span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">ClearBuffered</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            
+            <span class="ActionScriptComment">//b2Settings.b2Assert(pair.proxy1 &amp;&amp; pair.proxy2);
+</span>            
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">proxy1</span>:<span class="ActionScriptDefault_Text">b2Proxy</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">proxy1</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">proxy2</span>:<span class="ActionScriptDefault_Text">b2Proxy</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">proxy2</span>;
+            
+            <span class="ActionScriptComment">//b2Settings.b2Assert(proxy1.IsValid());
+</span>            <span class="ActionScriptComment">//b2Settings.b2Assert(proxy2.IsValid());
+</span>            
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">IsRemoved</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptComment">// It is possible a pair was added then removed before a commit. Therefore,
+</span>                <span class="ActionScriptComment">// we should be careful not to tell the user the pair was removed when the
+</span>                <span class="ActionScriptComment">// the user didn't receive a matching add.
+</span>                <span class="ActionScriptComment">//if (pair.IsFinal() == true)
+</span>                <span class="ActionScriptComment">//{
+</span>                <span class="ActionScriptComment">//    m_callback.PairRemoved(proxy1.userData, proxy2.userData, pair.userData);
+</span>                <span class="ActionScriptComment">//}
+</span>                
+                <span class="ActionScriptComment">// Store the ids so we can actually remove the pair below.
+</span>                <span class="ActionScriptComment">//m_pairBuffer[removeCount] = pair;
+</span>                <span class="ActionScriptComment">//++removeCount;
+</span>            <span class="ActionScriptBracket/Brace">}</span>
+            <span class="ActionScriptReserved">else</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptComment">//b2Settings.b2Assert(m_broadPhase.TestOverlap(proxy1, proxy2) == true);
+</span>                
+                <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">IsFinal</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">false</span><span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptComment">//pair.userData = m_callback.PairAdded(proxy1.userData, proxy2.userData);
+</span>                    <span class="ActionScriptComment">//pair.SetFinal();
+</span>                    <span class="ActionScriptDefault_Text">callback</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">userData</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">proxy2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">userData</span><span class="ActionScriptBracket/Brace">)</span>;
+                <span class="ActionScriptBracket/Brace">}</span>
+            <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptComment">//for (i = 0; i &lt; removeCount; ++i)
+</span>        <span class="ActionScriptComment">//{
+</span>        <span class="ActionScriptComment">//    pair = m_pairBuffer[i]
+</span>        <span class="ActionScriptComment">//    RemovePair(pair.proxy1, pair.proxy2);
+</span>        <span class="ActionScriptComment">//}
+</span>        
+        <span class="ActionScriptDefault_Text">m_pairBufferCount</span> <span class="ActionScriptOperator">=</span> 0;
+        
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">b2BroadPhase</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">s_validate</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">ValidateTable</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>    
+    <span class="ActionScriptBracket/Brace">}</span>
+
+<span class="ActionScriptComment">//private:
+</span>
+    <span class="ActionScriptComment">// Add a pair and return the new pair. If the pair already exists,
+</span>    <span class="ActionScriptComment">// no new pair is created and the old one is returned.
+</span>    <span class="ActionScriptReserved">private</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">AddPair</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy1</span>:<span class="ActionScriptDefault_Text">b2Proxy</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">proxy2</span>:<span class="ActionScriptDefault_Text">b2Proxy</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">b2Pair</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">pair</span>:<span class="ActionScriptDefault_Text">b2Pair</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">proxy1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pairs</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">proxy2</span><span class="ActionScriptBracket/Brace">]</span>;
+        
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">pair</span> <span class="ActionScriptOperator">!=</span> <span class="ActionScriptReserved">null</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">pair</span>;
+        
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_freePair</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">null</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">m_freePair</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2Pair</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">m_pairs</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">push</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_freePair</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptDefault_Text">pair</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_freePair</span>;
+        <span class="ActionScriptDefault_Text">m_freePair</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">next</span>;
+        
+        <span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">proxy1</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">proxy1</span>;
+        <span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">proxy2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">proxy2</span>;
+        <span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">status</span> <span class="ActionScriptOperator">=</span> 0;
+        <span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">userData</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+        <span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">next</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+        
+        <span class="ActionScriptDefault_Text">proxy1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pairs</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">proxy2</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">pair</span>;
+        <span class="ActionScriptDefault_Text">proxy2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pairs</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">proxy1</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">pair</span>;
+                
+        <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">m_pairCount</span>;
+        
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">pair</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+
+    <span class="ActionScriptComment">// Remove a pair, return the pair's userData.
+</span>    <span class="ActionScriptReserved">private</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">RemovePair</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy1</span>:<span class="ActionScriptDefault_Text">b2Proxy</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">proxy2</span>:<span class="ActionScriptDefault_Text">b2Proxy</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptOperator">*</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptComment">//b2Settings.b2Assert(m_pairCount &gt; 0);
+</span>        
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">pair</span>:<span class="ActionScriptDefault_Text">b2Pair</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">proxy1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pairs</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">proxy2</span><span class="ActionScriptBracket/Brace">]</span>;
+        
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">pair</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">null</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptComment">//b2Settings.b2Assert(false);
+</span>            <span class="ActionScriptReserved">return</span> <span class="ActionScriptReserved">null</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">userData</span>:<span class="ActionScriptOperator">*</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">userData</span>;
+        
+        <span class="ActionScriptReserved">delete</span> <span class="ActionScriptDefault_Text">proxy1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pairs</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">proxy2</span><span class="ActionScriptBracket/Brace">]</span>;
+        <span class="ActionScriptReserved">delete</span> <span class="ActionScriptDefault_Text">proxy2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pairs</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">proxy1</span><span class="ActionScriptBracket/Brace">]</span>;
+        
+        <span class="ActionScriptComment">// Scrub
+</span>        <span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">next</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_freePair</span>;
+        <span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">proxy1</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+        <span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">proxy2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+        <span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">userData</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+        <span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">status</span> <span class="ActionScriptOperator">=</span> 0;
+        
+        <span class="ActionScriptDefault_Text">m_freePair</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">pair</span>;
+        <span class="ActionScriptOperator">--</span><span class="ActionScriptDefault_Text">m_pairCount</span>;
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">userData</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Find</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy1</span>:<span class="ActionScriptDefault_Text">b2Proxy</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">proxy2</span>:<span class="ActionScriptDefault_Text">b2Proxy</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">b2Pair</span><span class="ActionScriptBracket/Brace">{</span>
+        
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">proxy1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pairs</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">proxy2</span><span class="ActionScriptBracket/Brace">]</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">ValidateBuffer</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptComment">// DEBUG
+</span>    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">ValidateTable</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptComment">// DEBUG
+</span>    <span class="ActionScriptBracket/Brace">}</span>
+
+<span class="ActionScriptComment">//public:
+</span>    <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_broadPhase</span>:<span class="ActionScriptDefault_Text">b2BroadPhase</span>;
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_pairs</span>:<span class="ActionScriptDefault_Text">Array</span>;
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_freePair</span>:<span class="ActionScriptDefault_Text">b2Pair</span>;
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_pairCount</span>:<span class="ActionScriptDefault_Text">int</span>;
+    
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_pairBuffer</span>:<span class="ActionScriptDefault_Text">Array</span>;
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_pairBufferCount</span>:<span class="ActionScriptDefault_Text">int</span>;
+    
+<span class="ActionScriptBracket/Brace">}</span>;
+
+<span class="ActionScriptBracket/Brace">}</span></pre></body>
+</html>

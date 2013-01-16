@@ -1,0 +1,135 @@
+<!-- saved from url=(0014)about:internet -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>HUDLayer.as</title>
+<link rel="stylesheet" type="text/css" href="../../../../../SourceStyles.css"/>
+</head>
+
+<body><pre><span class="ActionScriptpackage">package</span> <span class="ActionScriptDefault_Text">net</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">oyunYazar</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">CagryInside</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">assistans</span>
+<span class="ActionScriptBracket/Brace">{</span>
+    <span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">flash</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">display</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Bitmap</span>;
+    <span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">flash</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">text</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+    <span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">flash</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">utils</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">getTimer</span>;
+    
+    <span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">net</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">oyunYazar</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">CagryInside</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">CagryInside</span>;
+
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptclass">class</span> <span class="ActionScriptDefault_Text">HUDLayer</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">main</span>:<span class="ActionScriptDefault_Text">CagryInside</span>;
+        
+        <span class="ActionScriptComment">//number of bombs 
+</span>        <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">bombCount</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> 0;
+        <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">bombCountText</span>:<span class="ActionScriptDefault_Text">TextField</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">TextField</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">score</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> 0;
+        <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">scoreValueText</span>:<span class="ActionScriptDefault_Text">TextField</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">TextField</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">gameCountDown</span>:<span class="ActionScriptDefault_Text">TextField</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">TextField</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">myTextFormat</span>:<span class="ActionScriptDefault_Text">TextFormat</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">TextFormat</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptComment">//Time countdown attributes
+</span>        <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">startTime</span>:<span class="ActionScriptDefault_Text">uint</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">getTimer</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">currentTimer</span>:<span class="ActionScriptDefault_Text">uint</span>;        
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">min</span>:<span class="ActionScriptDefault_Text">uint</span>;
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">sec</span>:<span class="ActionScriptDefault_Text">uint</span>;
+        
+        <span class="ActionScriptComment">// Game score 
+</span>        <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">gameScore</span>:<span class="ActionScriptDefault_Text">uint</span> <span class="ActionScriptOperator">=</span> 0;
+        <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">gameScoreText</span>:<span class="ActionScriptDefault_Text">TextField</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">TextField</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptComment">//Bomb charger 
+</span>        <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">bombChargerImage</span>:<span class="ActionScriptDefault_Text">Bitmap</span>;
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">chargerController</span>:<span class="ActionScriptDefault_Text">Boolean</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">true</span>;
+        
+        <span class="ActionScriptComment">//Tower Health Bar
+</span>        <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">towerHealthBar</span>:<span class="ActionScriptDefault_Text">Bitmap</span>;
+        
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">HUDLayer</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">getMain</span>:<span class="ActionScriptDefault_Text">CagryInside</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">{</span>
+            
+            <span class="ActionScriptDefault_Text">main</span><span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">getMain</span>;
+            
+            <span class="ActionScriptDefault_Text">bombChargerImage</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">main</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">gameLoadManager</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">loadAssistant</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">getLoadedContent</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptString">"../Resources/hudLayerImages/bombCharger.png"</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">towerHealthBar</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">main</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">gameLoadManager</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">loadAssistant</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">getLoadedContent</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptString">"../Resources/hudLayerImages/towerHealthBar.png"</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptComment">//score un ekrana basilmasi
+</span>            <span class="ActionScriptDefault_Text">myTextFormat</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">font</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptString">"ComicSans"</span>;
+            <span class="ActionScriptDefault_Text">myTextFormat</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">size</span> <span class="ActionScriptOperator">=</span> 13;
+            <span class="ActionScriptDefault_Text">myTextFormat</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">color</span> <span class="ActionScriptOperator">=</span> 0x2ca19a;
+            <span class="ActionScriptDefault_Text">myTextFormat</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">bold</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">true</span>;
+            
+            <span class="ActionScriptDefault_Text">bombCountText</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">defaultTextFormat</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">myTextFormat</span>;
+            <span class="ActionScriptDefault_Text">bombCountText</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">width</span> <span class="ActionScriptOperator">=</span> 155;
+            
+            <span class="ActionScriptDefault_Text">bombCountText</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">=</span> 375;
+            <span class="ActionScriptDefault_Text">bombCountText</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">=</span> 21;
+            
+            <span class="ActionScriptDefault_Text">bombCountText</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">text</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptString">""</span>;
+            
+            <span class="ActionScriptComment">// Timer text
+</span>            <span class="ActionScriptDefault_Text">gameCountDown</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">defaultTextFormat</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">myTextFormat</span>;
+            <span class="ActionScriptDefault_Text">gameCountDown</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">width</span> <span class="ActionScriptOperator">=</span> 155;
+            
+            <span class="ActionScriptDefault_Text">gameCountDown</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">=</span> 375;
+            <span class="ActionScriptDefault_Text">gameCountDown</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">=</span> 33;
+            
+            <span class="ActionScriptDefault_Text">gameCountDown</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">text</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptString">""</span>;
+            
+            <span class="ActionScriptComment">//Score 
+</span>            <span class="ActionScriptDefault_Text">gameScoreText</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">defaultTextFormat</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">myTextFormat</span>;
+            
+            <span class="ActionScriptDefault_Text">gameScoreText</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">=</span> 375;
+            <span class="ActionScriptDefault_Text">gameScoreText</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">=</span> 45;
+            
+            <span class="ActionScriptComment">//bomb charger 
+</span>            <span class="ActionScriptDefault_Text">bombChargerImage</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">=</span> 20;
+            <span class="ActionScriptDefault_Text">bombChargerImage</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">=</span> 10;
+            <span class="ActionScriptDefault_Text">bombChargerImage</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">width</span> <span class="ActionScriptOperator">=</span> 0;
+            
+            <span class="ActionScriptComment">// tower health bar 
+</span>            <span class="ActionScriptDefault_Text">towerHealthBar</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">=</span> 20;
+            <span class="ActionScriptDefault_Text">towerHealthBar</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">=</span> 30;
+            
+            
+            <span class="ActionScriptDefault_Text">main</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">addChild</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">towerHealthBar</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">main</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">addChild</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">bombChargerImage</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">main</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">addChild</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">gameCountDown</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">main</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">addChild</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">bombCountText</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">main</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">addChild</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">gameScoreText</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">updateBombCount</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+            
+            <span class="ActionScriptDefault_Text">bombCount</span><span class="ActionScriptOperator">++</span>;
+            <span class="ActionScriptDefault_Text">bombCountText</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">text</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">bombCount</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">toString</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">syncGameCountDownTimer</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+            
+            <span class="ActionScriptDefault_Text">currentTimer</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">getTimer</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">startTime</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptOperator">/</span>1000;
+            <span class="ActionScriptDefault_Text">min</span> <span class="ActionScriptOperator">=</span> 2 <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">floor</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">currentTimer</span><span class="ActionScriptOperator">/</span>60<span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">sec</span> <span class="ActionScriptOperator">=</span> 60 <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">floor</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">currentTimer</span><span class="ActionScriptOperator">%</span>60<span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">gameCountDown</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">text</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">min</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">toString</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptOperator">+</span><span class="ActionScriptString">":"</span><span class="ActionScriptOperator">+</span><span class="ActionScriptDefault_Text">sec</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">toString</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            
+            <span class="ActionScriptComment">//Score 
+</span>            <span class="ActionScriptDefault_Text">gameScoreText</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">text</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">gameScore</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">toString</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptReserved">this</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">syncPanel</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">getBombCount</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">Number</span><span class="ActionScriptBracket/Brace">{</span>
+            
+            <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">bombCount</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptReserved">private</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">syncPanel</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+            
+            <span class="ActionScriptReserved">if</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">chargerController</span> <span class="ActionScriptOperator">&amp;&amp;</span> <span class="ActionScriptDefault_Text">bombChargerImage</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">width</span> <span class="ActionScriptOperator">==</span> 140<span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptDefault_Text">chargerController</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">false</span>;
+            
+            <span class="ActionScriptReserved">if</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptOperator">!</span><span class="ActionScriptDefault_Text">chargerController</span> <span class="ActionScriptOperator">&amp;&amp;</span> <span class="ActionScriptDefault_Text">bombChargerImage</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">width</span> <span class="ActionScriptOperator">==</span> 0<span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptDefault_Text">chargerController</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">true</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+            
+        <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptBracket/Brace">}</span>
+<span class="ActionScriptBracket/Brace">}</span></pre></body>
+</html>

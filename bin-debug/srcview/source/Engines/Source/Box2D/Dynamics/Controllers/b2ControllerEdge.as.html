@@ -1,0 +1,29 @@
+<!-- saved from url=(0014)about:internet -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>b2ControllerEdge.as</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../SourceStyles.css"/>
+</head>
+
+<body><pre><span class="ActionScriptpackage">package</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Controllers</span> 
+<span class="ActionScriptBracket/Brace">{</span>
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2Body</span>;
+<span class="ActionScriptReserved">public</span> <span class="ActionScriptclass">class</span> <span class="ActionScriptDefault_Text">b2ControllerEdge</span> 
+<span class="ActionScriptBracket/Brace">{</span>
+    <span class="ActionScriptASDoc">/** provides quick access to other end of this edge */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">controller</span>:<span class="ActionScriptDefault_Text">b2Controller</span>;
+    <span class="ActionScriptASDoc">/** the body */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">body</span>:<span class="ActionScriptDefault_Text">b2Body</span>;
+    <span class="ActionScriptASDoc">/** the previous controller edge in the controllers's body list */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">prevBody</span>:<span class="ActionScriptDefault_Text">b2ControllerEdge</span>;
+    <span class="ActionScriptASDoc">/** the next controller edge in the controllers's body list */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">nextBody</span>:<span class="ActionScriptDefault_Text">b2ControllerEdge</span>;
+    <span class="ActionScriptASDoc">/** the previous controller edge in the body's controller list */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">prevController</span>:<span class="ActionScriptDefault_Text">b2ControllerEdge</span>;
+    <span class="ActionScriptASDoc">/** the next controller edge in the body's controller list */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">nextController</span>:<span class="ActionScriptDefault_Text">b2ControllerEdge</span>;
+<span class="ActionScriptBracket/Brace">}</span>
+<span class="ActionScriptBracket/Brace">}</span></pre></body>
+</html>

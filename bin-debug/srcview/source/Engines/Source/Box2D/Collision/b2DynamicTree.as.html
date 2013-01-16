@@ -1,0 +1,485 @@
+<!-- saved from url=(0014)about:internet -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>b2DynamicTree.as</title>
+<link rel="stylesheet" type="text/css" href="../../../../../SourceStyles.css"/>
+</head>
+
+<body><pre><span class="ActionScriptComment">/*
+* Copyright (c) 2009 Erin Catto http://www.gphysics.com
+*
+* This software is provided 'as-is', without any express or implied
+* warranty.  In no event will the authors be held liable for any damages
+* arising from the use of this software.
+* Permission is granted to anyone to use this software for any purpose,
+* including commercial applications, and to alter it and redistribute it
+* freely, subject to the following restrictions:
+* 1. The origin of this software must not be misrepresented; you must not
+* claim that you wrote the original software. If you use this software
+* in a product, an acknowledgment in the product documentation would be
+* appreciated but is not required.
+* 2. Altered source versions must be plainly marked as such, and must not be
+* misrepresented as being the original software.
+* 3. This notice may not be removed or altered from any source distribution.
+*/</span>
+
+<span class="ActionScriptpackage">package</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span> 
+<span class="ActionScriptBracket/Brace">{</span>
+    <span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+    <span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+    
+    <span class="ActionScriptComment">// A dynamic AABB tree broad-phase, inspired by Nathanael Presson's btDbvt.
+</span>    
+    <span class="ActionScriptASDoc">/**
+     * A dynamic tree arranges data in a binary tree to accelerate
+     * queries such as volume queries and ray casts. Leafs are proxies
+     * with an AABB. In the tree we expand the proxy AABB by b2_fatAABBFactor
+     * so that the proxy AABB is bigger than the client object. This allows the client
+     * object to move by small amounts without triggering a tree update.
+     * 
+     * Nodes are pooled.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptclass">class</span> <span class="ActionScriptDefault_Text">b2DynamicTree</span> 
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptASDoc">/**
+         * Constructing the tree initializes the node pool.
+         */</span>
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">b2DynamicTree</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> 
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">m_root</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+            
+            <span class="ActionScriptComment">// TODO: Maybe allocate some free nodes?
+</span>            <span class="ActionScriptDefault_Text">m_freeList</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+            <span class="ActionScriptDefault_Text">m_path</span> <span class="ActionScriptOperator">=</span> 0;
+            
+            <span class="ActionScriptDefault_Text">m_insertionCount</span> <span class="ActionScriptOperator">=</span> 0;
+        <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptComment">/*
+        public function Dump(node:b2DynamicTreeNode=null, depth:int=0):void
+        {
+            if (!node)
+            {
+                node = m_root;
+            }
+            if (!node) return;
+            for (var i:int = 0; i &lt; depth; i++) s += " ";
+            if (node.userData)
+            {
+                var ud:* = (node.userData as b2Fixture).GetBody().GetUserData();
+                trace(s + ud);
+            }else {
+                trace(s + "-");
+            }
+            if (node.child1)
+                Dump(node.child1, depth + 1);
+            if (node.child2)
+                Dump(node.child2, depth + 1);
+        }
+        */</span>
+        
+        <span class="ActionScriptASDoc">/**
+         * Create a proxy. Provide a tight fitting AABB and a userData.
+         */</span>
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">CreateProxy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">aabb</span>:<span class="ActionScriptDefault_Text">b2AABB</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">userData</span>:<span class="ActionScriptOperator">*</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">node</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">AllocateNode</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            
+            <span class="ActionScriptComment">// Fatten the aabb.
+</span>            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">extendX</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_aabbExtension</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">extendY</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_aabbExtension</span>;
+            <span class="ActionScriptDefault_Text">node</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lowerBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lowerBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">extendX</span>;
+            <span class="ActionScriptDefault_Text">node</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lowerBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lowerBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">extendY</span>;
+            <span class="ActionScriptDefault_Text">node</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">upperBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">upperBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">extendX</span>;
+            <span class="ActionScriptDefault_Text">node</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">upperBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">upperBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">extendY</span>;
+            
+            <span class="ActionScriptDefault_Text">node</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">userData</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">userData</span>;
+            
+            <span class="ActionScriptDefault_Text">InsertLeaf</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">node</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">node</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptASDoc">/**
+         * Destroy a proxy. This asserts if the id is invalid.
+         */</span>
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">DestroyProxy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptComment">//b2Settings.b2Assert(proxy.IsLeaf());
+</span>            <span class="ActionScriptDefault_Text">RemoveLeaf</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">FreeNode</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptASDoc">/**
+         * Move a proxy with a swept AABB. If the proxy has moved outside of its fattened AABB,
+         * then the proxy is removed from the tree and re-inserted. Otherwise
+         * the function returns immediately.
+         */</span>
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">MoveProxy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">aabb</span>:<span class="ActionScriptDefault_Text">b2AABB</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">displacement</span>:<span class="ActionScriptDefault_Text">b2Vec2</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">Boolean</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2Assert</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">IsLeaf</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">)</span>;
+            
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Contains</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptReserved">return</span> <span class="ActionScriptReserved">false</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+            
+            <span class="ActionScriptDefault_Text">RemoveLeaf</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span><span class="ActionScriptBracket/Brace">)</span>;
+            
+            <span class="ActionScriptComment">// Extend AABB
+</span>            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">extendX</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_aabbExtension</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_aabbMultiplier</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">displacement</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">&gt;</span> 0<span class="ActionScriptOperator">?</span><span class="ActionScriptDefault_Text">displacement</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span>: <span class="ActionScriptOperator">-</span><span class="ActionScriptDefault_Text">displacement</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">extendY</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_aabbExtension</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_aabbMultiplier</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">displacement</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">&gt;</span> 0<span class="ActionScriptOperator">?</span><span class="ActionScriptDefault_Text">displacement</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span>: <span class="ActionScriptOperator">-</span><span class="ActionScriptDefault_Text">displacement</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">proxy</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lowerBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lowerBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">extendX</span>;
+            <span class="ActionScriptDefault_Text">proxy</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lowerBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lowerBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">extendY</span>;
+            <span class="ActionScriptDefault_Text">proxy</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">upperBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">upperBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">extendX</span>;
+            <span class="ActionScriptDefault_Text">proxy</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">upperBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">upperBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">extendY</span>;
+            
+            <span class="ActionScriptDefault_Text">InsertLeaf</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptReserved">return</span> <span class="ActionScriptReserved">true</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptASDoc">/**
+         * Perform some iterations to re-balance the tree.
+         */</span>
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Rebalance</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">iterations</span>:<span class="ActionScriptDefault_Text">int</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_root</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">null</span><span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptReserved">return</span>;
+                
+            <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">i</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">iterations</span>; <span class="ActionScriptDefault_Text">i</span><span class="ActionScriptOperator">++</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">node</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_root</span>;
+                <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">bit</span>:<span class="ActionScriptDefault_Text">uint</span> <span class="ActionScriptOperator">=</span> 0;
+                <span class="ActionScriptReserved">while</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">node</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">IsLeaf</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">false</span><span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptDefault_Text">node</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_path</span> <span class="ActionScriptOperator">&gt;&gt;</span> <span class="ActionScriptDefault_Text">bit</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">&amp;</span> 1 <span class="ActionScriptOperator">?</span> <span class="ActionScriptDefault_Text">node</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child2</span> : <span class="ActionScriptDefault_Text">node</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child1</span>;
+                    <span class="ActionScriptDefault_Text">bit</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">bit</span> <span class="ActionScriptOperator">+</span> 1<span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">&amp;</span> 31; <span class="ActionScriptComment">// 0-31 bits in a uint
+</span>                <span class="ActionScriptBracket/Brace">}</span>
+                <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">m_path</span>;
+                
+                <span class="ActionScriptDefault_Text">RemoveLeaf</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">node</span><span class="ActionScriptBracket/Brace">)</span>;
+                <span class="ActionScriptDefault_Text">InsertLeaf</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">node</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetFatAABB</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">b2AABB</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">proxy</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+
+        <span class="ActionScriptASDoc">/**
+         * Get user data from a proxy. Returns null if the proxy is invalid.
+         */</span>
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetUserData</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptOperator">*</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">proxy</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">userData</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptASDoc">/**
+         * Query an AABB for overlapping proxies. The callback
+         * is called for each proxy that overlaps the supplied AABB.
+         * The callback should match function signature
+         * &lt;code&gt;fuction callback(proxy:b2DynamicTreeNode):Boolean&lt;/code&gt;
+         * and should return false to trigger premature termination.
+         */</span>
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Query</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">callback</span>:<span class="ActionScriptDefault_Text">Function</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">aabb</span>:<span class="ActionScriptDefault_Text">b2AABB</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_root</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">null</span><span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptReserved">return</span>;
+                
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">stack</span>:<span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">b2DynamicTreeNode</span><span class="ActionScriptBracket/Brace">&gt;</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">b2DynamicTreeNode</span><span class="ActionScriptBracket/Brace">&gt;</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">count</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> 0;
+            <span class="ActionScriptDefault_Text">stack</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">count</span><span class="ActionScriptOperator">++</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_root</span>;
+            
+            <span class="ActionScriptReserved">while</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">count</span> <span class="ActionScriptOperator">&gt;</span> 0<span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">node</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">stack</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptOperator">--</span><span class="ActionScriptDefault_Text">count</span><span class="ActionScriptBracket/Brace">]</span>;
+                
+                <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">node</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">TestOverlap</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">node</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">IsLeaf</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">)</span>
+                    <span class="ActionScriptBracket/Brace">{</span>
+                        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">proceed</span>:<span class="ActionScriptDefault_Text">Boolean</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">callback</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">node</span><span class="ActionScriptBracket/Brace">)</span>;
+                        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptOperator">!</span><span class="ActionScriptDefault_Text">proceed</span><span class="ActionScriptBracket/Brace">)</span>
+                            <span class="ActionScriptReserved">return</span>;
+                    <span class="ActionScriptBracket/Brace">}</span>
+                    <span class="ActionScriptReserved">else</span>
+                    <span class="ActionScriptBracket/Brace">{</span>
+                        <span class="ActionScriptComment">// No stack limit, so no assert
+</span>                        <span class="ActionScriptDefault_Text">stack</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">count</span><span class="ActionScriptOperator">++</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">node</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child1</span>;
+                        <span class="ActionScriptDefault_Text">stack</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">count</span><span class="ActionScriptOperator">++</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">node</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child2</span>;
+                    <span class="ActionScriptBracket/Brace">}</span>
+                <span class="ActionScriptBracket/Brace">}</span>
+            <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptBracket/Brace">}</span>
+    
+        <span class="ActionScriptASDoc">/**
+         * Ray-cast against the proxies in the tree. This relies on the callback
+         * to perform a exact ray-cast in the case were the proxy contains a shape.
+         * The callback also performs the any collision filtering. This has performance
+         * roughly equal to k * log(n), where k is the number of collisions and n is the
+         * number of proxies in the tree.
+         * @param input the ray-cast input data. The ray extends from p1 to p1 + maxFraction * (p2 - p1).
+         * @param callback a callback class that is called for each proxy that is hit by the ray.
+         * It should be of signature:
+         * &lt;code&gt;function callback(input:b2RayCastInput, proxy:*):void&lt;/code&gt;
+         */</span>
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">RayCast</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">callback</span>:<span class="ActionScriptDefault_Text">Function</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">input</span>:<span class="ActionScriptDefault_Text">b2RayCastInput</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_root</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">null</span><span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptReserved">return</span>;
+                
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">p1</span>:<span class="ActionScriptDefault_Text">b2Vec2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">input</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">p1</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">p2</span>:<span class="ActionScriptDefault_Text">b2Vec2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">input</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">p2</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">r</span>:<span class="ActionScriptDefault_Text">b2Vec2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SubtractVV</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">p2</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptComment">//b2Settings.b2Assert(r.LengthSquared() &gt; 0.0);
+</span>            <span class="ActionScriptDefault_Text">r</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Normalize</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            
+            <span class="ActionScriptComment">// v is perpendicular to the segment
+</span>            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">v</span>:<span class="ActionScriptDefault_Text">b2Vec2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">CrossFV</span><span class="ActionScriptBracket/Brace">(</span>1.0<span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">r</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">abs_v</span>:<span class="ActionScriptDefault_Text">b2Vec2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">AbsV</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">v</span><span class="ActionScriptBracket/Brace">)</span>;
+            
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">maxFraction</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">input</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">maxFraction</span>;
+            
+            <span class="ActionScriptComment">// Build a bounding box for the segment
+</span>            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">segmentAABB</span>:<span class="ActionScriptDefault_Text">b2AABB</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2AABB</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">tX</span>:<span class="ActionScriptDefault_Text">Number</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">tY</span>:<span class="ActionScriptDefault_Text">Number</span>;
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptDefault_Text">tX</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">maxFraction</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">p2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptBracket/Brace">)</span>;
+                <span class="ActionScriptDefault_Text">tY</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">maxFraction</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">p2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptBracket/Brace">)</span>;
+                <span class="ActionScriptDefault_Text">segmentAABB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lowerBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">min</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">tX</span><span class="ActionScriptBracket/Brace">)</span>;
+                <span class="ActionScriptDefault_Text">segmentAABB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lowerBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">min</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">tY</span><span class="ActionScriptBracket/Brace">)</span>;
+                <span class="ActionScriptDefault_Text">segmentAABB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">upperBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">max</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">tX</span><span class="ActionScriptBracket/Brace">)</span>;
+                <span class="ActionScriptDefault_Text">segmentAABB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">upperBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">max</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">tY</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+            
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">stack</span>:<span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">b2DynamicTreeNode</span><span class="ActionScriptBracket/Brace">&gt;</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">b2DynamicTreeNode</span><span class="ActionScriptBracket/Brace">&gt;</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">count</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> 0;
+            <span class="ActionScriptDefault_Text">stack</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">count</span><span class="ActionScriptOperator">++</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_root</span>;
+            
+            <span class="ActionScriptReserved">while</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">count</span> <span class="ActionScriptOperator">&gt;</span> 0<span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">node</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">stack</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptOperator">--</span><span class="ActionScriptDefault_Text">count</span><span class="ActionScriptBracket/Brace">]</span>;
+                
+                <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">node</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">TestOverlap</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">segmentAABB</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">false</span><span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptReserved">continue</span>;
+                <span class="ActionScriptBracket/Brace">}</span>
+                
+                <span class="ActionScriptComment">// Separating axis for segment (Gino, p80)
+</span>                <span class="ActionScriptComment">// |dot(v, p1 - c)| &gt; dot(|v|,h)
+</span>                
+                <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">c</span>:<span class="ActionScriptDefault_Text">b2Vec2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">node</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetCenter</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+                <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">h</span>:<span class="ActionScriptDefault_Text">b2Vec2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">node</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetExtents</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+                <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">separation</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">abs</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">v</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">v</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">)</span>
+                                        <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">abs_v</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">h</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">abs_v</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">h</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span>;
+                <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">separation</span> <span class="ActionScriptOperator">&gt;</span> 0.0<span class="ActionScriptBracket/Brace">)</span>
+                    <span class="ActionScriptReserved">continue</span>;
+                
+                <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">node</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">IsLeaf</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">subInput</span>:<span class="ActionScriptDefault_Text">b2RayCastInput</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2RayCastInput</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+                    <span class="ActionScriptDefault_Text">subInput</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">p1</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">input</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">p1</span>;
+                    <span class="ActionScriptDefault_Text">subInput</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">p2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">input</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">p2</span>;
+                    <span class="ActionScriptDefault_Text">subInput</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">maxFraction</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">input</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">maxFraction</span>;
+                    
+                    <span class="ActionScriptDefault_Text">maxFraction</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">callback</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">subInput</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">node</span><span class="ActionScriptBracket/Brace">)</span>;
+                    
+                    <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">maxFraction</span> <span class="ActionScriptOperator">==</span> 0.0<span class="ActionScriptBracket/Brace">)</span>
+                        <span class="ActionScriptReserved">return</span>;
+                        
+                    <span class="ActionScriptComment">//Update the segment bounding box
+</span>                    <span class="ActionScriptBracket/Brace">{</span>
+                        <span class="ActionScriptDefault_Text">tX</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">maxFraction</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">p2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptBracket/Brace">)</span>;
+                        <span class="ActionScriptDefault_Text">tY</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">maxFraction</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">p2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptBracket/Brace">)</span>;
+                        <span class="ActionScriptDefault_Text">segmentAABB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lowerBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">min</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">tX</span><span class="ActionScriptBracket/Brace">)</span>;
+                        <span class="ActionScriptDefault_Text">segmentAABB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lowerBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">min</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">tY</span><span class="ActionScriptBracket/Brace">)</span>;
+                        <span class="ActionScriptDefault_Text">segmentAABB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">upperBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">max</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">tX</span><span class="ActionScriptBracket/Brace">)</span>;
+                        <span class="ActionScriptDefault_Text">segmentAABB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">upperBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">max</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">tY</span><span class="ActionScriptBracket/Brace">)</span>;
+                    <span class="ActionScriptBracket/Brace">}</span>
+                <span class="ActionScriptBracket/Brace">}</span>
+                <span class="ActionScriptReserved">else</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptComment">// No stack limit, so no assert
+</span>                    <span class="ActionScriptDefault_Text">stack</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">count</span><span class="ActionScriptOperator">++</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">node</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child1</span>;
+                    <span class="ActionScriptDefault_Text">stack</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">count</span><span class="ActionScriptOperator">++</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">node</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child2</span>;
+                <span class="ActionScriptBracket/Brace">}</span>
+            <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        
+        <span class="ActionScriptReserved">private</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">AllocateNode</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptComment">// Peel a node off the free list
+</span>            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_freeList</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">node</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_freeList</span>;
+                <span class="ActionScriptDefault_Text">m_freeList</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">node</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">parent</span>;
+                <span class="ActionScriptDefault_Text">node</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">parent</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+                <span class="ActionScriptDefault_Text">node</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child1</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+                <span class="ActionScriptDefault_Text">node</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+                <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">node</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+            
+            <span class="ActionScriptComment">// Ignore length pool expansion and relocation found in the C++
+</span>            <span class="ActionScriptComment">// As we are using heap allocation
+</span>            <span class="ActionScriptReserved">return</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2DynamicTreeNode</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptReserved">private</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">FreeNode</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">node</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">node</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">parent</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_freeList</span>;
+            <span class="ActionScriptDefault_Text">m_freeList</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">node</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptReserved">private</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">InsertLeaf</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">leaf</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">m_insertionCount</span>;
+            
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_root</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">null</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptDefault_Text">m_root</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">leaf</span>;
+                <span class="ActionScriptDefault_Text">m_root</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">parent</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+                <span class="ActionScriptReserved">return</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+            
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">center</span>:<span class="ActionScriptDefault_Text">b2Vec2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">leaf</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetCenter</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">sibling</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_root</span>;
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">sibling</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">IsLeaf</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">false</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptReserved">do</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">child1</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">sibling</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child1</span>;
+                    <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">child2</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">sibling</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child2</span>;
+                    
+                    <span class="ActionScriptComment">//b2Vec2 delta1 = b2Abs(m_nodes[child1].aabb.GetCenter() - center);
+</span>                    <span class="ActionScriptComment">//b2Vec2 delta2 = b2Abs(m_nodes[child2].aabb.GetCenter() - center);
+</span>                    <span class="ActionScriptComment">//float32 norm1 = delta1.x + delta1.y;
+</span>                    <span class="ActionScriptComment">//float32 norm2 = delta2.x + delta2.y;
+</span>                    
+                    <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">norm1</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">abs</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">child1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lowerBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">child1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">upperBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">/</span> 2 <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">center</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptBracket/Brace">)</span>
+                                     <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">abs</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">child1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lowerBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">child1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">upperBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">/</span> 2 <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">center</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptBracket/Brace">)</span>;
+                    <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">norm2</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">abs</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">child2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lowerBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">child2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">upperBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">/</span> 2 <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">center</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptBracket/Brace">)</span>
+                                     <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">abs</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">child2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lowerBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">child2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">upperBound</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">/</span> 2 <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">center</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptBracket/Brace">)</span>;
+                                     
+                    <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">norm1</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">norm2</span><span class="ActionScriptBracket/Brace">)</span>
+                    <span class="ActionScriptBracket/Brace">{</span>
+                        <span class="ActionScriptDefault_Text">sibling</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">child1</span>;
+                    <span class="ActionScriptBracket/Brace">}</span><span class="ActionScriptReserved">else</span> <span class="ActionScriptBracket/Brace">{</span>
+                        <span class="ActionScriptDefault_Text">sibling</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">child2</span>;
+                    <span class="ActionScriptBracket/Brace">}</span>
+                <span class="ActionScriptBracket/Brace">}</span>
+                <span class="ActionScriptReserved">while</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">sibling</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">IsLeaf</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">false</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+            
+            <span class="ActionScriptComment">// Create a parent for the siblings
+</span>            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">node1</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">sibling</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">parent</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">node2</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">AllocateNode</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">node2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">parent</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">node1</span>;
+            <span class="ActionScriptDefault_Text">node2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">userData</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+            <span class="ActionScriptDefault_Text">node2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Combine</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">leaf</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">sibling</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">node1</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">sibling</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">parent</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child1</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">sibling</span><span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptDefault_Text">node1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child1</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">node2</span>;
+                <span class="ActionScriptBracket/Brace">}</span>
+                <span class="ActionScriptReserved">else</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptDefault_Text">node1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">node2</span>;
+                <span class="ActionScriptBracket/Brace">}</span>
+                
+                <span class="ActionScriptDefault_Text">node2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child1</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">sibling</span>;
+                <span class="ActionScriptDefault_Text">node2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">leaf</span>;
+                <span class="ActionScriptDefault_Text">sibling</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">parent</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">node2</span>;
+                <span class="ActionScriptDefault_Text">leaf</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">parent</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">node2</span>;
+                <span class="ActionScriptReserved">do</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">node1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Contains</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">node2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">)</span>
+                        <span class="ActionScriptReserved">break</span>;
+                    
+                    <span class="ActionScriptDefault_Text">node1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Combine</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">node1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">node1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptBracket/Brace">)</span>;
+                    <span class="ActionScriptDefault_Text">node2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">node1</span>;
+                    <span class="ActionScriptDefault_Text">node1</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">node1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">parent</span>;
+                <span class="ActionScriptBracket/Brace">}</span>
+                <span class="ActionScriptReserved">while</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">node1</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+            <span class="ActionScriptReserved">else</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptDefault_Text">node2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child1</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">sibling</span>;
+                <span class="ActionScriptDefault_Text">node2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">leaf</span>;
+                <span class="ActionScriptDefault_Text">sibling</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">parent</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">node2</span>;
+                <span class="ActionScriptDefault_Text">leaf</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">parent</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">node2</span>;
+                <span class="ActionScriptDefault_Text">m_root</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">node2</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+            
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptReserved">private</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">RemoveLeaf</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">leaf</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span> <span class="ActionScriptDefault_Text">leaf</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">m_root</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptDefault_Text">m_root</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+                <span class="ActionScriptReserved">return</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+            
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">node2</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">leaf</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">parent</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">node1</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">node2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">parent</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">sibling</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span>;
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">node2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child1</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">leaf</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptDefault_Text">sibling</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">node2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child2</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+            <span class="ActionScriptReserved">else</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptDefault_Text">sibling</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">node2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child1</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+            
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">node1</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptComment">// Destroy node2 and connect node1 to sibling
+</span>                <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">node1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child1</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">node2</span><span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptDefault_Text">node1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child1</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">sibling</span>;
+                <span class="ActionScriptBracket/Brace">}</span>
+                <span class="ActionScriptReserved">else</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptDefault_Text">node1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">sibling</span>;
+                <span class="ActionScriptBracket/Brace">}</span>
+                <span class="ActionScriptDefault_Text">sibling</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">parent</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">node1</span>;
+                <span class="ActionScriptDefault_Text">FreeNode</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">node2</span><span class="ActionScriptBracket/Brace">)</span>;
+                
+                <span class="ActionScriptComment">// Adjust the ancestor bounds
+</span>                <span class="ActionScriptReserved">while</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">node1</span><span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">oldAABB</span>:<span class="ActionScriptDefault_Text">b2AABB</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">node1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span>;
+                    <span class="ActionScriptDefault_Text">node1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2AABB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Combine</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">node1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">node1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">child2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptBracket/Brace">)</span>;
+                    
+                    <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">oldAABB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Contains</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">node1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">)</span>
+                        <span class="ActionScriptReserved">break</span>;
+                        
+                    <span class="ActionScriptDefault_Text">node1</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">node1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">parent</span>;
+                <span class="ActionScriptBracket/Brace">}</span>
+            <span class="ActionScriptBracket/Brace">}</span>
+            <span class="ActionScriptReserved">else</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptDefault_Text">m_root</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">sibling</span>;
+                <span class="ActionScriptDefault_Text">sibling</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">parent</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+                <span class="ActionScriptDefault_Text">FreeNode</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">node2</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_root</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span>;
+        <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_freeList</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span>;
+        
+        <span class="ActionScriptASDoc">/** This is used for incrementally traverse the tree for rebalancing */</span>
+        <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_path</span>:<span class="ActionScriptDefault_Text">uint</span>;
+        
+        <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_insertionCount</span>:<span class="ActionScriptDefault_Text">int</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+<span class="ActionScriptBracket/Brace">}</span></pre></body>
+</html>

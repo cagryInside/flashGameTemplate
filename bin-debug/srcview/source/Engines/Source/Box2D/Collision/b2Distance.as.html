@@ -1,0 +1,221 @@
+<!-- saved from url=(0014)about:internet -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>b2Distance.as</title>
+<link rel="stylesheet" type="text/css" href="../../../../../SourceStyles.css"/>
+</head>
+
+<body><pre><span class="ActionScriptComment">/*
+* Copyright (c) 2006-2007 Erin Catto http://www.gphysics.com
+*
+* This software is provided 'as-is', without any express or implied
+* warranty.  In no event will the authors be held liable for any damages
+* arising from the use of this software.
+* Permission is granted to anyone to use this software for any purpose,
+* including commercial applications, and to alter it and redistribute it
+* freely, subject to the following restrictions:
+* 1. The origin of this software must not be misrepresented; you must not
+* claim that you wrote the original software. If you use this software
+* in a product, an acknowledgment in the product documentation would be
+* appreciated but is not required.
+* 2. Altered source versions must be plainly marked as such, and must not be
+* misrepresented as being the original software.
+* 3. This notice may not be removed or altered from any source distribution.
+*/</span>
+
+<span class="ActionScriptpackage">package</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span><span class="ActionScriptBracket/Brace">{</span>
+    
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Shapes</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2internal</span>;
+<span class="ActionScriptReserved">use</span> <span class="ActionScriptReserved">namespace</span> <span class="ActionScriptDefault_Text">b2internal</span>;
+
+<span class="ActionScriptASDoc">/**
+* @private
+*/</span>
+<span class="ActionScriptReserved">public</span> <span class="ActionScriptclass">class</span> <span class="ActionScriptDefault_Text">b2Distance</span>
+<span class="ActionScriptBracket/Brace">{</span>
+
+<span class="ActionScriptComment">// GJK using Voronoi regions (Christer Ericson) and Barycentric coordinates.
+</span>
+<span class="ActionScriptReserved">private</span> <span class="ActionScriptReserved">static</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">b2_gjkCalls</span>:<span class="ActionScriptDefault_Text">int</span>;
+<span class="ActionScriptReserved">private</span> <span class="ActionScriptReserved">static</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">b2_gjkIters</span>:<span class="ActionScriptDefault_Text">int</span>;
+<span class="ActionScriptReserved">private</span> <span class="ActionScriptReserved">static</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">b2_gjkMaxIters</span>:<span class="ActionScriptDefault_Text">int</span>;
+
+<span class="ActionScriptReserved">private</span> <span class="ActionScriptReserved">static</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">s_simplex</span>:<span class="ActionScriptDefault_Text">b2Simplex</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2Simplex</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+<span class="ActionScriptReserved">private</span> <span class="ActionScriptReserved">static</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">s_saveA</span>:<span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">int</span><span class="ActionScriptBracket/Brace">&gt;</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">int</span><span class="ActionScriptBracket/Brace">&gt;</span><span class="ActionScriptBracket/Brace">(</span>3<span class="ActionScriptBracket/Brace">)</span>;
+<span class="ActionScriptReserved">private</span> <span class="ActionScriptReserved">static</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">s_saveB</span>:<span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">int</span><span class="ActionScriptBracket/Brace">&gt;</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">int</span><span class="ActionScriptBracket/Brace">&gt;</span><span class="ActionScriptBracket/Brace">(</span>3<span class="ActionScriptBracket/Brace">)</span>;
+<span class="ActionScriptReserved">public</span> <span class="ActionScriptReserved">static</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Distance</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">output</span>:<span class="ActionScriptDefault_Text">b2DistanceOutput</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">cache</span>:<span class="ActionScriptDefault_Text">b2SimplexCache</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">input</span>:<span class="ActionScriptDefault_Text">b2DistanceInput</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+<span class="ActionScriptBracket/Brace">{</span>
+    <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">b2_gjkCalls</span>;
+    
+    <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">proxyA</span>:<span class="ActionScriptDefault_Text">b2DistanceProxy</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">input</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">proxyA</span>;
+    <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">proxyB</span>:<span class="ActionScriptDefault_Text">b2DistanceProxy</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">input</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">proxyB</span>;
+    
+    <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">transformA</span>:<span class="ActionScriptDefault_Text">b2Transform</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">input</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">transformA</span>;
+    <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">transformB</span>:<span class="ActionScriptDefault_Text">b2Transform</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">input</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">transformB</span>;
+    
+    <span class="ActionScriptComment">// Initialize the simplex
+</span>    <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">simplex</span>:<span class="ActionScriptDefault_Text">b2Simplex</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">s_simplex</span>;
+    <span class="ActionScriptDefault_Text">simplex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">ReadCache</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">cache</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">proxyA</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">transformA</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">proxyB</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">transformB</span><span class="ActionScriptBracket/Brace">)</span>;
+    
+    <span class="ActionScriptComment">// Get simplex vertices as an vector.
+</span>    <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">vertices</span>:<span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">b2SimplexVertex</span><span class="ActionScriptBracket/Brace">&gt;</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">simplex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_vertices</span>;
+    <span class="ActionScriptReserved">const</span> <span class="ActionScriptDefault_Text">k_maxIters</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> 20;
+    
+    <span class="ActionScriptComment">// These store the vertices of the last simplex so that we
+</span>    <span class="ActionScriptComment">// can check for duplicates and preven cycling
+</span>    <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">saveA</span>:<span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">int</span><span class="ActionScriptBracket/Brace">&gt;</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">s_saveA</span>;
+    <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">saveB</span>:<span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">int</span><span class="ActionScriptBracket/Brace">&gt;</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">s_saveB</span>;
+    <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">saveCount</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> 0;
+    
+    <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">closestPoint</span>:<span class="ActionScriptDefault_Text">b2Vec2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">simplex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetClosestPoint</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">distanceSqr1</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">closestPoint</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">LengthSquared</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">distanceSqr2</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">distanceSqr1</span>;
+    
+    <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">i</span>:<span class="ActionScriptDefault_Text">int</span>;
+    <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">p</span>:<span class="ActionScriptDefault_Text">b2Vec2</span>;
+    
+    <span class="ActionScriptComment">// Main iteration loop
+</span>    <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">iter</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> 0;
+    <span class="ActionScriptReserved">while</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">iter</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">k_maxIters</span><span class="ActionScriptBracket/Brace">)</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptComment">// Copy the simplex so that we can identify duplicates
+</span>        <span class="ActionScriptDefault_Text">saveCount</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">simplex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_count</span>;
+        <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">saveCount</span>; <span class="ActionScriptDefault_Text">i</span><span class="ActionScriptOperator">++</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">saveA</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">vertices</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">indexA</span>;
+            <span class="ActionScriptDefault_Text">saveB</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">vertices</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">indexB</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptReserved">switch</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">simplex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_count</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptReserved">case</span> 1:
+                <span class="ActionScriptReserved">break</span>;
+            <span class="ActionScriptReserved">case</span> 2:
+                <span class="ActionScriptDefault_Text">simplex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Solve2</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+                <span class="ActionScriptReserved">break</span>;
+            <span class="ActionScriptReserved">case</span> 3:
+                <span class="ActionScriptDefault_Text">simplex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Solve3</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+                <span class="ActionScriptReserved">break</span>;
+            <span class="ActionScriptReserved">default</span>:
+                <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2Assert</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptReserved">false</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptComment">// If we have 3 points, then the origin is in the corresponding triangle.
+</span>        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">simplex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_count</span> <span class="ActionScriptOperator">==</span> 3<span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptReserved">break</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptComment">// Compute the closest point.
+</span>        <span class="ActionScriptDefault_Text">p</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">simplex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetClosestPoint</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">distanceSqr2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">p</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">LengthSquared</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptComment">// Ensure progress
+</span>        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">distanceSqr2</span> <span class="ActionScriptOperator">&gt;</span> <span class="ActionScriptDefault_Text">distanceSqr1</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptComment">//break;
+</span>        <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptDefault_Text">distanceSqr1</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">distanceSqr2</span>;
+        
+        <span class="ActionScriptComment">// Get search direction.
+</span>        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">d</span>:<span class="ActionScriptDefault_Text">b2Vec2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">simplex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetSearchDirection</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptComment">// Ensure the search direction is numerically fit.
+</span>        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">d</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">LengthSquared</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">Number</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">MIN_VALUE</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">Number</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">MIN_VALUE</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptComment">// THe origin is probably contained by a line segment or triangle.
+</span>            <span class="ActionScriptComment">// Thus the shapes are overlapped.
+</span>            
+            <span class="ActionScriptComment">// We can't return zero here even though there may be overlap.
+</span>            <span class="ActionScriptComment">// In case the simplex is a point, segment or triangle it is very difficult
+</span>            <span class="ActionScriptComment">// to determine if the origin is contained in the CSO or very close to it
+</span>            <span class="ActionScriptReserved">break</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptComment">// Compute a tentative new simplex vertex using support points
+</span>        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">vertex</span>:<span class="ActionScriptDefault_Text">b2SimplexVertex</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">vertices</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">simplex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_count</span><span class="ActionScriptBracket/Brace">]</span>;
+        <span class="ActionScriptDefault_Text">vertex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">indexA</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">proxyA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetSupport</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">b2Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">MulTMV</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">transformA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">R</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">d</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetNegative</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">vertex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">wA</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">MulX</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">transformA</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">proxyA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetVertex</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">vertex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">indexA</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">vertex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">indexB</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">proxyB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetSupport</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">b2Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">MulTMV</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">transformB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">R</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">d</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">vertex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">wB</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">MulX</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">transformB</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">proxyB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetVertex</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">vertex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">indexB</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">vertex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">w</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SubtractVV</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">vertex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">wB</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">vertex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">wA</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptComment">// Iteration count is equated to the number of support point calls.
+</span>        <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">iter</span>;
+        <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">b2_gjkIters</span>;
+        
+        <span class="ActionScriptComment">// Check for duplicate support points. This is the main termination criteria.
+</span>        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">duplicate</span>:<span class="ActionScriptDefault_Text">Boolean</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">false</span>;
+        <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">saveCount</span>; <span class="ActionScriptDefault_Text">i</span><span class="ActionScriptOperator">++</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">vertex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">indexA</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">saveA</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">&amp;&amp;</span> <span class="ActionScriptDefault_Text">vertex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">indexB</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">saveB</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptDefault_Text">duplicate</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">true</span>;
+                <span class="ActionScriptReserved">break</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptComment">// If we found a duplicate support point we must exist to avoid cycling
+</span>        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">duplicate</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptReserved">break</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptComment">// New vertex is ok and needed.
+</span>        <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">simplex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_count</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptDefault_Text">b2_gjkMaxIters</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Max</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">b2_gjkMaxIters</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">iter</span><span class="ActionScriptBracket/Brace">)</span>;
+    
+    <span class="ActionScriptComment">// Prepare output
+</span>    <span class="ActionScriptDefault_Text">simplex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetWitnessPoints</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pointA</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pointB</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">distance</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SubtractVV</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pointA</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pointB</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Length</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">iterations</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">iter</span>;
+    
+    <span class="ActionScriptComment">// Cache the simplex
+</span>    <span class="ActionScriptDefault_Text">simplex</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">WriteCache</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">cache</span><span class="ActionScriptBracket/Brace">)</span>;
+    
+    <span class="ActionScriptComment">// Apply radii if requested.
+</span>    <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">input</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">useRadii</span><span class="ActionScriptBracket/Brace">)</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">rA</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">proxyA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_radius</span>;
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">rB</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">proxyB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_radius</span>;
+        
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">distance</span> <span class="ActionScriptOperator">&gt;</span> <span class="ActionScriptDefault_Text">rA</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">rB</span> <span class="ActionScriptOperator">&amp;&amp;</span> <span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">distance</span> <span class="ActionScriptOperator">&gt;</span> <span class="ActionScriptDefault_Text">Number</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">MIN_VALUE</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptComment">// Shapes are still not overlapped.
+</span>            <span class="ActionScriptComment">// Move the witness points to the outer surface.
+</span>            <span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">distance</span> <span class="ActionScriptOperator">-=</span> <span class="ActionScriptDefault_Text">rA</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">rB</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">normal</span>:<span class="ActionScriptDefault_Text">b2Vec2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SubtractVV</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pointB</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pointA</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">normal</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Normalize</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pointA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">+=</span> <span class="ActionScriptDefault_Text">rA</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">normal</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span>;
+            <span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pointA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">+=</span> <span class="ActionScriptDefault_Text">rA</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">normal</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span>;
+            <span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pointB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">-=</span> <span class="ActionScriptDefault_Text">rB</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">normal</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span>;
+            <span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pointB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">-=</span> <span class="ActionScriptDefault_Text">rB</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">normal</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptReserved">else</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptComment">// Shapes are overlapped when radii are considered.
+</span>            <span class="ActionScriptComment">// Move the witness points to the middle.
+</span>            <span class="ActionScriptDefault_Text">p</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2Vec2</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">p</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">=</span> .5 <span class="ActionScriptOperator">*</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pointA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pointB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">p</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">=</span> .5 <span class="ActionScriptOperator">*</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pointA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pointB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pointA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pointB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">p</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span>;
+            <span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pointA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pointB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">p</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span>;
+            <span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">distance</span> <span class="ActionScriptOperator">=</span> 0.0;
+        <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptBracket/Brace">}</span>
+<span class="ActionScriptBracket/Brace">}</span>
+
+<span class="ActionScriptBracket/Brace">}</span>;
+
+
+<span class="ActionScriptBracket/Brace">}</span></pre></body>
+</html>

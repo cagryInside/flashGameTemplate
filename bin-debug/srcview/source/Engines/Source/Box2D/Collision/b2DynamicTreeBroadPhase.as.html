@@ -1,0 +1,207 @@
+<!-- saved from url=(0014)about:internet -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>b2DynamicTreeBroadPhase.as</title>
+<link rel="stylesheet" type="text/css" href="../../../../../SourceStyles.css"/>
+</head>
+
+<body><pre><span class="ActionScriptpackage">package</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span> 
+<span class="ActionScriptBracket/Brace">{</span>
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+    
+<span class="ActionScriptASDoc">/**
+ * The broad-phase is used for computing pairs and performing volume queries and ray casts.
+ * This broad-phase does not persist pairs. Instead, this reports potentially new pairs.
+ * It is up to the client to consume the new pairs and to track subsequent overlap.
+ */</span>
+<span class="ActionScriptReserved">public</span> <span class="ActionScriptclass">class</span> <span class="ActionScriptDefault_Text">b2DynamicTreeBroadPhase</span> <span class="ActionScriptReserved">implements</span> <span class="ActionScriptDefault_Text">IBroadPhase</span>
+<span class="ActionScriptBracket/Brace">{</span>
+    <span class="ActionScriptASDoc">/**
+     * Create a proxy with an initial AABB. Pairs are not reported until
+     * UpdatePairs is called.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">CreateProxy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">aabb</span>:<span class="ActionScriptDefault_Text">b2AABB</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">userData</span>:<span class="ActionScriptOperator">*</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptOperator">*</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">proxy</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_tree</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">CreateProxy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">userData</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">m_proxyCount</span>;
+        <span class="ActionScriptDefault_Text">BufferMove</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">proxy</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Destroy a proxy. It is up to the client to remove any pairs.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">DestroyProxy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span>:<span class="ActionScriptOperator">*</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">UnBufferMove</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptOperator">--</span><span class="ActionScriptDefault_Text">m_proxyCount</span>;
+        <span class="ActionScriptDefault_Text">m_tree</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">DestroyProxy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Call MoveProxy as many times as you like, then when you are done
+     * call UpdatePairs to finalized the proxy pairs (for your time step).
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">MoveProxy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span>:<span class="ActionScriptOperator">*</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">aabb</span>:<span class="ActionScriptDefault_Text">b2AABB</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">displacement</span>:<span class="ActionScriptDefault_Text">b2Vec2</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">buffer</span>:<span class="ActionScriptDefault_Text">Boolean</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_tree</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">MoveProxy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">displacement</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">buffer</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">BufferMove</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">TestOverlap</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxyA</span>:<span class="ActionScriptOperator">*</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">proxyB</span>:<span class="ActionScriptOperator">*</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">Boolean</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">aabbA</span>:<span class="ActionScriptDefault_Text">b2AABB</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_tree</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetFatAABB</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxyA</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">aabbB</span>:<span class="ActionScriptDefault_Text">b2AABB</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_tree</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetFatAABB</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxyB</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">aabbA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">TestOverlap</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">aabbB</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Get user data from a proxy. Returns null if the proxy is invalid.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetUserData</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span>:<span class="ActionScriptOperator">*</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptOperator">*</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">m_tree</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetUserData</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Get the AABB for a proxy.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetFatAABB</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span>:<span class="ActionScriptOperator">*</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">b2AABB</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">m_tree</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetFatAABB</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Get the number of proxies.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetProxyCount</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">int</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">m_proxyCount</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Update the pairs. This results in pair callbacks. This can only add pairs.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">UpdatePairs</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">callback</span>:<span class="ActionScriptDefault_Text">Function</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_pairCount</span> <span class="ActionScriptOperator">=</span> 0;
+        <span class="ActionScriptComment">// Perform tree queries for all moving queries
+</span>        <span class="ActionScriptReserved">for each</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">queryProxy</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span> <span class="ActionScriptReserved">in</span> <span class="ActionScriptDefault_Text">m_moveBuffer</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">QueryCallback</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">Boolean</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptComment">// A proxy cannot form a pair with itself.
+</span>                <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">queryProxy</span><span class="ActionScriptBracket/Brace">)</span>
+                    <span class="ActionScriptReserved">return</span> <span class="ActionScriptReserved">true</span>;
+                    
+                <span class="ActionScriptComment">// Grow the pair buffer as needed
+</span>                <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_pairCount</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">m_pairBuffer</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">length</span><span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptDefault_Text">m_pairBuffer</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">m_pairCount</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2DynamicTreePair</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+                <span class="ActionScriptBracket/Brace">}</span>
+                
+                <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">pair</span>:<span class="ActionScriptDefault_Text">b2DynamicTreePair</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_pairBuffer</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">m_pairCount</span><span class="ActionScriptBracket/Brace">]</span>;
+                <span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">proxyA</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">proxy</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">queryProxy</span><span class="ActionScriptOperator">?</span><span class="ActionScriptDefault_Text">proxy</span>:<span class="ActionScriptDefault_Text">queryProxy</span>;
+                <span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">proxyB</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">proxy</span> <span class="ActionScriptOperator">&gt;=</span> <span class="ActionScriptDefault_Text">queryProxy</span><span class="ActionScriptOperator">?</span><span class="ActionScriptDefault_Text">proxy</span>:<span class="ActionScriptDefault_Text">queryProxy</span>;
+                <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">m_pairCount</span>;
+                
+                <span class="ActionScriptReserved">return</span> <span class="ActionScriptReserved">true</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+            <span class="ActionScriptComment">// We have to query the tree with the fat AABB so that
+</span>            <span class="ActionScriptComment">// we don't fail to create a pair that may touch later.
+</span>            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">fatAABB</span>:<span class="ActionScriptDefault_Text">b2AABB</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_tree</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetFatAABB</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">queryProxy</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">m_tree</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Query</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">QueryCallback</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">fatAABB</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptComment">// Reset move buffer
+</span>        <span class="ActionScriptDefault_Text">m_moveBuffer</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">length</span> <span class="ActionScriptOperator">=</span> 0;
+        
+        <span class="ActionScriptComment">// Sort the pair buffer to expose duplicates.
+</span>        <span class="ActionScriptComment">// TODO: Something more sensible
+</span>        <span class="ActionScriptComment">//m_pairBuffer.sort(ComparePairs);
+</span>        
+        <span class="ActionScriptComment">// Send the pair buffer
+</span>        <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">i</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">m_pairCount</span>; <span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">primaryPair</span>:<span class="ActionScriptDefault_Text">b2DynamicTreePair</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_pairBuffer</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">userDataA</span>:<span class="ActionScriptOperator">*</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_tree</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetUserData</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">primaryPair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">proxyA</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">userDataB</span>:<span class="ActionScriptOperator">*</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_tree</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetUserData</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">primaryPair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">proxyB</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">callback</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">userDataA</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">userDataB</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">i</span>;
+            
+            <span class="ActionScriptComment">// Skip any duplicate pairs
+</span>            <span class="ActionScriptReserved">while</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">m_pairCount</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">pair</span>:<span class="ActionScriptDefault_Text">b2DynamicTreePair</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_pairBuffer</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span>;
+                <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">proxyA</span> <span class="ActionScriptOperator">!=</span> <span class="ActionScriptDefault_Text">primaryPair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">proxyA</span> <span class="ActionScriptOperator">||</span> <span class="ActionScriptDefault_Text">pair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">proxyB</span> <span class="ActionScriptOperator">!=</span> <span class="ActionScriptDefault_Text">primaryPair</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">proxyB</span><span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptReserved">break</span>;
+                <span class="ActionScriptBracket/Brace">}</span>
+                <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">i</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * @inheritDoc
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Query</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">callback</span>:<span class="ActionScriptDefault_Text">Function</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">aabb</span>:<span class="ActionScriptDefault_Text">b2AABB</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_tree</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Query</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">callback</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">aabb</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * @inheritDoc
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">RayCast</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">callback</span>:<span class="ActionScriptDefault_Text">Function</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">input</span>:<span class="ActionScriptDefault_Text">b2RayCastInput</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_tree</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">RayCast</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">callback</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">input</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Validate</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptComment">//TODO_BORIS
+</span>    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Rebalance</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">iterations</span>:<span class="ActionScriptDefault_Text">int</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_tree</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Rebalance</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">iterations</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    
+    <span class="ActionScriptComment">// Private ///////////////
+</span>    
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">BufferMove</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_moveBuffer</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">m_moveBuffer</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">length</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">proxy</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">UnBufferMove</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span>:<span class="ActionScriptDefault_Text">b2DynamicTreeNode</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">i</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_moveBuffer</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">indexOf</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxy</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_moveBuffer</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">splice</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptOperator">,</span> 1<span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">ComparePairs</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">pair1</span>:<span class="ActionScriptDefault_Text">b2DynamicTreePair</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">pair2</span>:<span class="ActionScriptDefault_Text">b2DynamicTreePair</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">int</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptComment">//TODO_BORIS:
+</span>        <span class="ActionScriptComment">// We cannot consistently sort objects easily in AS3
+</span>        <span class="ActionScriptComment">// The caller of this needs replacing with a different method.
+</span>        <span class="ActionScriptReserved">return</span> 0;
+    <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_tree</span>:<span class="ActionScriptDefault_Text">b2DynamicTree</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2DynamicTree</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_proxyCount</span>:<span class="ActionScriptDefault_Text">int</span>;
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_moveBuffer</span>:<span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">b2DynamicTreeNode</span><span class="ActionScriptBracket/Brace">&gt;</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">b2DynamicTreeNode</span><span class="ActionScriptBracket/Brace">&gt;</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+    
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_pairBuffer</span>:<span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">b2DynamicTreePair</span><span class="ActionScriptBracket/Brace">&gt;</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">b2DynamicTreePair</span><span class="ActionScriptBracket/Brace">&gt;</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_pairCount</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> 0;
+<span class="ActionScriptBracket/Brace">}</span>
+    
+<span class="ActionScriptBracket/Brace">}</span></pre></body>
+</html>

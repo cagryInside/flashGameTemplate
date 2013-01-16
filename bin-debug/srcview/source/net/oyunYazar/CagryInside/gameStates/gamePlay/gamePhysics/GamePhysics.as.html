@@ -1,0 +1,90 @@
+<!-- saved from url=(0014)about:internet -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>GamePhysics.as</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../SourceStyles.css"/>
+</head>
+
+<body><pre><span class="ActionScriptpackage">package</span> <span class="ActionScriptDefault_Text">net</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">oyunYazar</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">CagryInside</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">gameStates</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">gamePlay</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">gamePhysics</span>
+<span class="ActionScriptBracket/Brace">{</span>
+    <span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+    <span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Shapes</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+    <span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+    <span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+    <span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Joints</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2Joint</span>;
+    <span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Joints</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2JointDef</span>;
+    
+    <span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">flash</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">display</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Bitmap</span>;
+    <span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">flash</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">display</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Sprite</span>;
+    
+    <span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">net</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">oyunYazar</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">CagryInside</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">CagryInside</span>;
+    
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptclass">class</span> <span class="ActionScriptDefault_Text">GamePhysics</span> <span class="ActionScriptReserved">extends</span> <span class="ActionScriptDefault_Text">Sprite</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">main</span>:<span class="ActionScriptDefault_Text">CagryInside</span>;
+        
+        <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">gamePhysicWorld</span>:<span class="ActionScriptDefault_Text">b2World</span>;
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">gravity</span>:<span class="ActionScriptDefault_Text">b2Vec2</span>;
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">world_scale</span>:<span class="ActionScriptDefault_Text">int</span><span class="ActionScriptOperator">=</span>30;
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">gameContactHandler</span>:<span class="ActionScriptDefault_Text">OYContactHandler</span>;        
+        
+        
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GamePhysics</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">getMain</span>:<span class="ActionScriptDefault_Text">CagryInside</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">main</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">getMain</span>;
+            
+            <span class="ActionScriptComment">//game contact handler init
+</span>            <span class="ActionScriptDefault_Text">gameContactHandler</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">OYContactHandler</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">main</span><span class="ActionScriptBracket/Brace">)</span>;
+            
+            <span class="ActionScriptDefault_Text">gravity</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2Vec2</span><span class="ActionScriptBracket/Brace">(</span>0<span class="ActionScriptOperator">,</span>4<span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">gamePhysicWorld</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2World</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">gravity</span><span class="ActionScriptOperator">,</span><span class="ActionScriptReserved">true</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">gamePhysicWorld</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SetContactListener</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">gameContactHandler</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">addPhysicObject</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">addedBody</span>:<span class="ActionScriptDefault_Text">b2BodyDef</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">b2Body</span><span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptComment">//Adding physic objects to main physic world 
+</span>            <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">gamePhysicWorld</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">CreateBody</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">addedBody</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">addJoint</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">addedJoint</span>:<span class="ActionScriptDefault_Text">b2JointDef</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptComment">//Adding joints to main physic world 
+</span>            <span class="ActionScriptDefault_Text">gamePhysicWorld</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">CreateJoint</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">addedJoint</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">destroyBodyWhenCollide</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">body</span>:<span class="ActionScriptDefault_Text">b2Body</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+            
+            <span class="ActionScriptDefault_Text">gamePhysicWorld</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">DestroyBody</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">body</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">syncDebugData</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">debugData</span>:<span class="ActionScriptDefault_Text">b2DebugDraw</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptComment">//Adding drawing information to main world 
+</span>            <span class="ActionScriptDefault_Text">gamePhysicWorld</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SetDebugDraw</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">debugData</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">runPhysicEngine</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">gamePhysicWorld</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Step</span><span class="ActionScriptBracket/Brace">(</span>1<span class="ActionScriptOperator">/</span>30<span class="ActionScriptOperator">,</span>10<span class="ActionScriptOperator">,</span>8<span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">gamePhysicWorld</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">ClearForces</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptComment">// Go through body list and update sprite positions/rotations
+</span>            <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">bb</span>:<span class="ActionScriptDefault_Text">b2Body</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">gamePhysicWorld</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetBodyList</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>; <span class="ActionScriptDefault_Text">bb</span>; <span class="ActionScriptDefault_Text">bb</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">bb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetNext</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptComment">//trace(bb.GetUserData());
+</span>                <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">bb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetUserData</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptReserved">is</span> <span class="ActionScriptDefault_Text">Sprite</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">{</span>
+                    
+                    <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">sprite</span>:<span class="ActionScriptDefault_Text">Sprite</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">bb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetUserData</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptReserved">as</span> <span class="ActionScriptDefault_Text">Sprite</span>;
+                    <span class="ActionScriptDefault_Text">sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">bb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetPosition</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">main</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">world_scale</span>;
+                    <span class="ActionScriptDefault_Text">sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">bb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetPosition</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">main</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">world_scale</span>;
+                    <span class="ActionScriptDefault_Text">sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">rotation</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">bb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetAngle</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptBracket/Brace">(</span>180<span class="ActionScriptOperator">/</span><span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">PI</span><span class="ActionScriptBracket/Brace">)</span>;    
+                
+                <span class="ActionScriptBracket/Brace">}</span>
+            <span class="ActionScriptBracket/Brace">}</span>
+            
+            
+            
+            <span class="ActionScriptDefault_Text">gamePhysicWorld</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">DrawDebugData</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+
+    <span class="ActionScriptBracket/Brace">}</span>
+<span class="ActionScriptBracket/Brace">}</span></pre></body>
+</html>

@@ -1,0 +1,107 @@
+<!-- saved from url=(0014)about:internet -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>b2Manifold.as</title>
+<link rel="stylesheet" type="text/css" href="../../../../../SourceStyles.css"/>
+</head>
+
+<body><pre><span class="ActionScriptComment">/*
+* Copyright (c) 2006-2007 Erin Catto http://www.gphysics.com
+*
+* This software is provided 'as-is', without any express or implied
+* warranty.  In no event will the authors be held liable for any damages
+* arising from the use of this software.
+* Permission is granted to anyone to use this software for any purpose,
+* including commercial applications, and to alter it and redistribute it
+* freely, subject to the following restrictions:
+* 1. The origin of this software must not be misrepresented; you must not
+* claim that you wrote the original software. If you use this software
+* in a product, an acknowledgment in the product documentation would be
+* appreciated but is not required.
+* 2. Altered source versions must be plainly marked as such, and must not be
+* misrepresented as being the original software.
+* 3. This notice may not be removed or altered from any source distribution.
+*/</span>
+
+<span class="ActionScriptpackage">package</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span><span class="ActionScriptBracket/Brace">{</span>
+    
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2internal</span>;
+<span class="ActionScriptReserved">use</span> <span class="ActionScriptReserved">namespace</span> <span class="ActionScriptDefault_Text">b2internal</span>;
+
+<span class="ActionScriptASDoc">/**
+ * A manifold for two touching convex shapes.
+ * Box2D supports multiple types of contact:
+ * - clip point versus plane with radius
+ * - point versus point with radius (circles)
+ * The local point usage depends on the manifold type:
+ * -e_circles: the local center of circleA
+ * -e_faceA: the center of faceA
+ * -e_faceB: the center of faceB
+ * Similarly the local normal usage:
+ * -e_circles: not used
+ * -e_faceA: the normal on polygonA
+ * -e_faceB: the normal on polygonB
+ * We store contacts in this way so that position correction can
+ * account for movement, which is critical for continuous physics.
+ * All contact scenarios must be expressed in one of these types.
+ * This structure is stored across time steps, so we keep it small.
+ */</span>
+<span class="ActionScriptReserved">public</span> <span class="ActionScriptclass">class</span> <span class="ActionScriptDefault_Text">b2Manifold</span>
+<span class="ActionScriptBracket/Brace">{</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">b2Manifold</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_points</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">b2ManifoldPoint</span><span class="ActionScriptBracket/Brace">&gt;</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_maxManifoldPoints</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">i</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_maxManifoldPoints</span>; <span class="ActionScriptDefault_Text">i</span><span class="ActionScriptOperator">++</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">m_points</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2ManifoldPoint</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptDefault_Text">m_localPlaneNormal</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2Vec2</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_localPoint</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2Vec2</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Reset</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">i</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_maxManifoldPoints</span>; <span class="ActionScriptDefault_Text">i</span><span class="ActionScriptOperator">++</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_points</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptReserved">as</span> <span class="ActionScriptDefault_Text">b2ManifoldPoint</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Reset</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptDefault_Text">m_localPlaneNormal</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SetZero</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_localPoint</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SetZero</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_type</span> <span class="ActionScriptOperator">=</span> 0;
+        <span class="ActionScriptDefault_Text">m_pointCount</span> <span class="ActionScriptOperator">=</span> 0;
+    <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Set</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m</span>:<span class="ActionScriptDefault_Text">b2Manifold</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_pointCount</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_pointCount</span>;
+        <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">i</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_maxManifoldPoints</span>; <span class="ActionScriptDefault_Text">i</span><span class="ActionScriptOperator">++</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_points</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptReserved">as</span> <span class="ActionScriptDefault_Text">b2ManifoldPoint</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Set</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_points</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptDefault_Text">m_localPlaneNormal</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SetV</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_localPlaneNormal</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_localPoint</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SetV</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_localPoint</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_type</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_type</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Copy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">b2Manifold</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">copy</span>:<span class="ActionScriptDefault_Text">b2Manifold</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2Manifold</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">copy</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Set</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptReserved">this</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">copy</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptASDoc">/** The points of contact */</span>    
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_points</span>:<span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">b2ManifoldPoint</span><span class="ActionScriptBracket/Brace">&gt;</span>;    
+    <span class="ActionScriptASDoc">/** Not used for Type e_points*/</span>    
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_localPlaneNormal</span>:<span class="ActionScriptDefault_Text">b2Vec2</span>;    
+    <span class="ActionScriptASDoc">/** Usage depends on manifold type */</span>    
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_localPoint</span>:<span class="ActionScriptDefault_Text">b2Vec2</span>;    
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_type</span>:<span class="ActionScriptDefault_Text">int</span>;
+    <span class="ActionScriptASDoc">/** The number of manifold points */</span>    
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_pointCount</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> 0;
+    
+    <span class="ActionScriptComment">//enum Type
+</span>    <span class="ActionScriptReserved">public</span> <span class="ActionScriptReserved">static</span> <span class="ActionScriptReserved">const</span> <span class="ActionScriptDefault_Text">e_circles</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> 0x0001;
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptReserved">static</span> <span class="ActionScriptReserved">const</span> <span class="ActionScriptDefault_Text">e_faceA</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> 0x0002;
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptReserved">static</span> <span class="ActionScriptReserved">const</span> <span class="ActionScriptDefault_Text">e_faceB</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> 0x0004;
+<span class="ActionScriptBracket/Brace">}</span>;
+
+
+<span class="ActionScriptBracket/Brace">}</span></pre></body>
+</html>

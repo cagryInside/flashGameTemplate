@@ -1,0 +1,283 @@
+<!-- saved from url=(0014)about:internet -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>b2DebugDraw.as</title>
+<link rel="stylesheet" type="text/css" href="../../../../../SourceStyles.css"/>
+</head>
+
+<body><pre><span class="ActionScriptComment">/*
+* Copyright (c) 2006-2007 Erin Catto http://www.gphysics.com
+*
+* This software is provided 'as-is', without any express or implied
+* warranty.  In no event will the authors be held liable for any damages
+* arising from the use of this software.
+* Permission is granted to anyone to use this software for any purpose,
+* including commercial applications, and to alter it and redistribute it
+* freely, subject to the following restrictions:
+* 1. The origin of this software must not be misrepresented; you must not
+* claim that you wrote the original software. If you use this software
+* in a product, an acknowledgment in the product documentation would be
+* appreciated but is not required.
+* 2. Altered source versions must be plainly marked as such, and must not be
+* misrepresented as being the original software.
+* 3. This notice may not be removed or altered from any source distribution.
+*/</span>
+
+<span class="ActionScriptpackage">package</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptBracket/Brace">{</span>
+
+
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Shapes</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Contacts</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2internal</span>;
+<span class="ActionScriptReserved">use</span> <span class="ActionScriptReserved">namespace</span> <span class="ActionScriptDefault_Text">b2internal</span>;
+
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">flash</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">display</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Sprite</span>;
+
+
+<span class="ActionScriptASDoc">/**
+* Implement and register this class with a b2World to provide debug drawing of physics
+* entities in your game.
+*/</span>
+<span class="ActionScriptReserved">public</span> <span class="ActionScriptclass">class</span> <span class="ActionScriptDefault_Text">b2DebugDraw</span>
+<span class="ActionScriptBracket/Brace">{</span>
+
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">b2DebugDraw</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_drawFlags</span> <span class="ActionScriptOperator">=</span> 0;
+    <span class="ActionScriptBracket/Brace">}</span>
+
+    <span class="ActionScriptComment">//virtual ~b2DebugDraw() {}
+</span>
+    <span class="ActionScriptComment">//enum
+</span>    <span class="ActionScriptComment">//{
+</span>    <span class="ActionScriptASDoc">/** Draw shapes */</span>
+    <span class="ActionScriptReserved">static</span> <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">e_shapeBit</span>:<span class="ActionScriptDefault_Text">uint</span>             <span class="ActionScriptOperator">=</span> 0x0001;
+    <span class="ActionScriptASDoc">/** Draw joint connections */</span>
+    <span class="ActionScriptReserved">static</span> <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">e_jointBit</span>:<span class="ActionScriptDefault_Text">uint</span>            <span class="ActionScriptOperator">=</span> 0x0002;
+    <span class="ActionScriptASDoc">/** Draw axis aligned bounding boxes */</span>
+    <span class="ActionScriptReserved">static</span> <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">e_aabbBit</span>:<span class="ActionScriptDefault_Text">uint</span>            <span class="ActionScriptOperator">=</span> 0x0004;
+    <span class="ActionScriptASDoc">/** Draw broad-phase pairs */</span>
+    <span class="ActionScriptReserved">static</span> <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">e_pairBit</span>:<span class="ActionScriptDefault_Text">uint</span>            <span class="ActionScriptOperator">=</span> 0x0008;
+    <span class="ActionScriptASDoc">/** Draw center of mass frame */</span>
+    <span class="ActionScriptReserved">static</span> <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">e_centerOfMassBit</span>:<span class="ActionScriptDefault_Text">uint</span>    <span class="ActionScriptOperator">=</span> 0x0010;
+    <span class="ActionScriptASDoc">/** Draw controllers */</span>
+    <span class="ActionScriptReserved">static</span> <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">e_controllerBit</span>:<span class="ActionScriptDefault_Text">uint</span>        <span class="ActionScriptOperator">=</span> 0x0020;
+    <span class="ActionScriptComment">//};
+</span>
+    <span class="ActionScriptASDoc">/**
+    * Set the drawing flags.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">SetFlags</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">flags</span>:<span class="ActionScriptDefault_Text">uint</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_drawFlags</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">flags</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+
+    <span class="ActionScriptASDoc">/**
+    * Get the drawing flags.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetFlags</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptDefault_Text">uint</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">m_drawFlags</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+    * Append flags to the current flags.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">AppendFlags</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">flags</span>:<span class="ActionScriptDefault_Text">uint</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_drawFlags</span> <span class="ActionScriptOperator">|=</span> <span class="ActionScriptDefault_Text">flags</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+
+    <span class="ActionScriptASDoc">/**
+    * Clear flags from the current flags.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">ClearFlags</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">flags</span>:<span class="ActionScriptDefault_Text">uint</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span> <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_drawFlags</span> <span class="ActionScriptOperator">&amp;=</span> <span class="ActionScriptOperator">~</span><span class="ActionScriptDefault_Text">flags</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+
+    <span class="ActionScriptASDoc">/**
+    * Set the sprite
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">SetSprite</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">sprite</span>:<span class="ActionScriptDefault_Text">Sprite</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span> <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_sprite</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">sprite</span>; 
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+    * Get the sprite
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetSprite</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptDefault_Text">Sprite</span> <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">m_sprite</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+    * Set the draw scale
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">SetDrawScale</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">drawScale</span>:<span class="ActionScriptDefault_Text">Number</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span> <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_drawScale</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">drawScale</span>; 
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+    * Get the draw
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetDrawScale</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">m_drawScale</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+    * Set the line thickness
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">SetLineThickness</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">lineThickness</span>:<span class="ActionScriptDefault_Text">Number</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span> <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_lineThickness</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">lineThickness</span>; 
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+    * Get the line thickness
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetLineThickness</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">m_lineThickness</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+    * Set the alpha value used for lines
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">SetAlpha</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">alpha</span>:<span class="ActionScriptDefault_Text">Number</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span> <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_alpha</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">alpha</span>; 
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+    * Get the alpha value used for lines
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetAlpha</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">m_alpha</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+    * Set the alpha value used for fills
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">SetFillAlpha</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">alpha</span>:<span class="ActionScriptDefault_Text">Number</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span> <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_fillAlpha</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">alpha</span>; 
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+    * Get the alpha value used for fills
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetFillAlpha</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">m_fillAlpha</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+    * Set the scale used for drawing XForms
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">SetXFormScale</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">xformScale</span>:<span class="ActionScriptDefault_Text">Number</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span> <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_xformScale</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">xformScale</span>; 
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+    * Get the scale used for drawing XForms
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetXFormScale</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">m_xformScale</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+    * Draw a closed polygon provided in CCW order.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptDefault_Text">virtual</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">DrawPolygon</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">vertices</span>:<span class="ActionScriptDefault_Text">Array</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">vertexCount</span>:<span class="ActionScriptDefault_Text">int</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">color</span>:<span class="ActionScriptDefault_Text">b2Color</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+        
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lineStyle</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_lineThickness</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">color</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">color</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">m_alpha</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">moveTo</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">vertices</span><span class="ActionScriptBracket/Brace">[</span>0<span class="ActionScriptBracket/Brace">]</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">vertices</span><span class="ActionScriptBracket/Brace">[</span>0<span class="ActionScriptBracket/Brace">]</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">i</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> 1; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">vertexCount</span>; <span class="ActionScriptDefault_Text">i</span><span class="ActionScriptOperator">++</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lineTo</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">vertices</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">vertices</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lineTo</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">vertices</span><span class="ActionScriptBracket/Brace">[</span>0<span class="ActionScriptBracket/Brace">]</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">vertices</span><span class="ActionScriptBracket/Brace">[</span>0<span class="ActionScriptBracket/Brace">]</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+    <span class="ActionScriptBracket/Brace">}</span>
+
+    <span class="ActionScriptASDoc">/**
+    * Draw a solid closed polygon provided in CCW order.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptDefault_Text">virtual</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">DrawSolidPolygon</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">vertices</span>:<span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">b2Vec2</span><span class="ActionScriptBracket/Brace">&gt;</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">vertexCount</span>:<span class="ActionScriptDefault_Text">int</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">color</span>:<span class="ActionScriptDefault_Text">b2Color</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+        
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lineStyle</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_lineThickness</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">color</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">color</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">m_alpha</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">moveTo</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">vertices</span><span class="ActionScriptBracket/Brace">[</span>0<span class="ActionScriptBracket/Brace">]</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">vertices</span><span class="ActionScriptBracket/Brace">[</span>0<span class="ActionScriptBracket/Brace">]</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">beginFill</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">color</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">color</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">m_fillAlpha</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">i</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> 1; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">vertexCount</span>; <span class="ActionScriptDefault_Text">i</span><span class="ActionScriptOperator">++</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lineTo</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">vertices</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">vertices</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lineTo</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">vertices</span><span class="ActionScriptBracket/Brace">[</span>0<span class="ActionScriptBracket/Brace">]</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">vertices</span><span class="ActionScriptBracket/Brace">[</span>0<span class="ActionScriptBracket/Brace">]</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">endFill</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+    <span class="ActionScriptBracket/Brace">}</span>
+
+    <span class="ActionScriptASDoc">/**
+    * Draw a circle.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptDefault_Text">virtual</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">DrawCircle</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">center</span>:<span class="ActionScriptDefault_Text">b2Vec2</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">radius</span>:<span class="ActionScriptDefault_Text">Number</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">color</span>:<span class="ActionScriptDefault_Text">b2Color</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+        
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lineStyle</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_lineThickness</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">color</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">color</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">m_alpha</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">drawCircle</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">center</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">center</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">radius</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+    * Draw a solid circle.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptDefault_Text">virtual</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">DrawSolidCircle</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">center</span>:<span class="ActionScriptDefault_Text">b2Vec2</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">radius</span>:<span class="ActionScriptDefault_Text">Number</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">axis</span>:<span class="ActionScriptDefault_Text">b2Vec2</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">color</span>:<span class="ActionScriptDefault_Text">b2Color</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+        
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lineStyle</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_lineThickness</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">color</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">color</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">m_alpha</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">moveTo</span><span class="ActionScriptBracket/Brace">(</span>0<span class="ActionScriptOperator">,</span>0<span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">beginFill</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">color</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">color</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">m_fillAlpha</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">drawCircle</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">center</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">center</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">radius</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">endFill</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">moveTo</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">center</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">center</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lineTo</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">center</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">axis</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptOperator">*</span><span class="ActionScriptDefault_Text">radius</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">center</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">axis</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptOperator">*</span><span class="ActionScriptDefault_Text">radius</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+    <span class="ActionScriptBracket/Brace">}</span>
+
+    
+    <span class="ActionScriptASDoc">/**
+    * Draw a line segment.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptDefault_Text">virtual</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">DrawSegment</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">p1</span>:<span class="ActionScriptDefault_Text">b2Vec2</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">p2</span>:<span class="ActionScriptDefault_Text">b2Vec2</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">color</span>:<span class="ActionScriptDefault_Text">b2Color</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+        
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lineStyle</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_lineThickness</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">color</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">color</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">m_alpha</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">moveTo</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">p1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lineTo</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">p2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">p2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+    <span class="ActionScriptBracket/Brace">}</span>
+
+    <span class="ActionScriptASDoc">/**
+    * Draw a transform. Choose your own length scale.
+    * @param xf a transform.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptDefault_Text">virtual</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">DrawTransform</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">xf</span>:<span class="ActionScriptDefault_Text">b2Transform</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span><span class="ActionScriptBracket/Brace">{</span>
+        
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lineStyle</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_lineThickness</span><span class="ActionScriptOperator">,</span> 0xff0000<span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">m_alpha</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">moveTo</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">xf</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">position</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">xf</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">position</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lineTo</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">xf</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">position</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">m_xformScale</span><span class="ActionScriptOperator">*</span><span class="ActionScriptDefault_Text">xf</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">R</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">col1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">xf</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">position</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">m_xformScale</span><span class="ActionScriptOperator">*</span><span class="ActionScriptDefault_Text">xf</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">R</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">col1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lineStyle</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_lineThickness</span><span class="ActionScriptOperator">,</span> 0x00ff00<span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">m_alpha</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">moveTo</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">xf</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">position</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">xf</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">position</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_sprite</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">graphics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">lineTo</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">xf</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">position</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">m_xformScale</span><span class="ActionScriptOperator">*</span><span class="ActionScriptDefault_Text">xf</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">R</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">col2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">xf</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">position</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">m_xformScale</span><span class="ActionScriptOperator">*</span><span class="ActionScriptDefault_Text">xf</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">R</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">col2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">m_drawScale</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    
+    
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_drawFlags</span>:<span class="ActionScriptDefault_Text">uint</span>;
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_sprite</span>:<span class="ActionScriptDefault_Text">Sprite</span>;
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_drawScale</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> 1.0;
+    
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_lineThickness</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> 1.0;
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_alpha</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> 1.0;
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_fillAlpha</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> 1.0;
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_xformScale</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> 1.0;
+    
+<span class="ActionScriptBracket/Brace">}</span>;
+
+<span class="ActionScriptBracket/Brace">}</span>
+</pre></body>
+</html>

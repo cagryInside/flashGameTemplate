@@ -1,0 +1,70 @@
+<!-- saved from url=(0014)about:internet -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>b2FilterData.as</title>
+<link rel="stylesheet" type="text/css" href="../../../../../SourceStyles.css"/>
+</head>
+
+<body><pre><span class="ActionScriptComment">/*
+* Copyright (c) 2006-2007 Erin Catto http://www.gphysics.com
+*
+* This software is provided 'as-is', without any express or implied
+* warranty.  In no event will the authors be held liable for any damages
+* arising from the use of this software.
+* Permission is granted to anyone to use this software for any purpose,
+* including commercial applications, and to alter it and redistribute it
+* freely, subject to the following restrictions:
+* 1. The origin of this software must not be misrepresented; you must not
+* claim that you wrote the original software. If you use this software
+* in a product, an acknowledgment in the product documentation would be
+* appreciated but is not required.
+* 2. Altered source versions must be plainly marked as such, and must not be
+* misrepresented as being the original software.
+* 3. This notice may not be removed or altered from any source distribution.
+*/</span>
+
+<span class="ActionScriptpackage">package</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptBracket/Brace">{</span>
+
+
+
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2internal</span>;
+<span class="ActionScriptReserved">use</span> <span class="ActionScriptReserved">namespace</span> <span class="ActionScriptDefault_Text">b2internal</span>;
+
+
+<span class="ActionScriptASDoc">/**
+* This holds contact filtering data.
+*/</span>
+<span class="ActionScriptReserved">public</span> <span class="ActionScriptclass">class</span> <span class="ActionScriptDefault_Text">b2FilterData</span>
+<span class="ActionScriptBracket/Brace">{</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Copy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptDefault_Text">b2FilterData</span> <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">copy</span>: <span class="ActionScriptDefault_Text">b2FilterData</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2FilterData</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">copy</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">categoryBits</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">categoryBits</span>;
+        <span class="ActionScriptDefault_Text">copy</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">maskBits</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">maskBits</span>;
+        <span class="ActionScriptDefault_Text">copy</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">groupIndex</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">groupIndex</span>;
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">copy</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+    * The collision category bits. Normally you would just set one bit.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">categoryBits</span>: <span class="ActionScriptDefault_Text">uint</span> <span class="ActionScriptOperator">=</span> 0x0001;
+
+    <span class="ActionScriptASDoc">/**
+    * The collision mask bits. This states the categories that this
+    * shape would accept for collision.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">maskBits</span>: <span class="ActionScriptDefault_Text">uint</span> <span class="ActionScriptOperator">=</span> 0xFFFF;
+
+    <span class="ActionScriptASDoc">/**
+    * Collision groups allow a certain group of objects to never collide (negative)
+    * or always collide (positive). Zero means no collision group. Non-zero group
+    * filtering always wins against the mask bits.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">groupIndex</span>: <span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> 0;
+<span class="ActionScriptBracket/Brace">}</span>
+
+<span class="ActionScriptBracket/Brace">}</span></pre></body>
+</html>

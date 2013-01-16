@@ -1,0 +1,298 @@
+<!-- saved from url=(0014)about:internet -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>b2ContactManager.as</title>
+<link rel="stylesheet" type="text/css" href="../../../../../SourceStyles.css"/>
+</head>
+
+<body><pre><span class="ActionScriptComment">/*
+* Copyright (c) 2006-2007 Erin Catto http://www.gphysics.com
+*
+* This software is provided 'as-is', without any express or implied
+* warranty.  In no event will the authors be held liable for any damages
+* arising from the use of this software.
+* Permission is granted to anyone to use this software for any purpose,
+* including commercial applications, and to alter it and redistribute it
+* freely, subject to the following restrictions:
+* 1. The origin of this software must not be misrepresented; you must not
+* claim that you wrote the original software. If you use this software
+* in a product, an acknowledgment in the product documentation would be
+* appreciated but is not required.
+* 2. Altered source versions must be plainly marked as such, and must not be
+* misrepresented as being the original software.
+* 3. This notice may not be removed or altered from any source distribution.
+*/</span>
+
+<span class="ActionScriptpackage">package</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptBracket/Brace">{</span>
+
+
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Shapes</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Contacts</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2internal</span>;
+<span class="ActionScriptReserved">use</span> <span class="ActionScriptReserved">namespace</span> <span class="ActionScriptDefault_Text">b2internal</span>;
+
+
+<span class="ActionScriptComment">// Delegate of b2World.
+</span><span class="ActionScriptASDoc">/**
+* @private
+*/</span>
+<span class="ActionScriptReserved">public</span> <span class="ActionScriptclass">class</span> <span class="ActionScriptDefault_Text">b2ContactManager</span> 
+<span class="ActionScriptBracket/Brace">{</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">b2ContactManager</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_world</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+        <span class="ActionScriptDefault_Text">m_contactCount</span> <span class="ActionScriptOperator">=</span> 0;
+        <span class="ActionScriptDefault_Text">m_contactFilter</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2ContactFilter</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_defaultFilter</span>;
+        <span class="ActionScriptDefault_Text">m_contactListener</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2ContactListener</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_defaultListener</span>;
+        <span class="ActionScriptDefault_Text">m_contactFactory</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2ContactFactory</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_allocator</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_broadPhase</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2DynamicTreeBroadPhase</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>;
+
+    <span class="ActionScriptComment">// This is a callback from the broadphase when two AABB proxies begin
+</span>    <span class="ActionScriptComment">// to overlap. We create a b2Contact to manage the narrow phase.
+</span>    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">AddPair</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxyUserDataA</span>:<span class="ActionScriptOperator">*</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">proxyUserDataB</span>:<span class="ActionScriptOperator">*</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span> <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">fixtureA</span>:<span class="ActionScriptDefault_Text">b2Fixture</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">proxyUserDataA</span> <span class="ActionScriptReserved">as</span> <span class="ActionScriptDefault_Text">b2Fixture</span>;
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">fixtureB</span>:<span class="ActionScriptDefault_Text">b2Fixture</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">proxyUserDataB</span> <span class="ActionScriptReserved">as</span> <span class="ActionScriptDefault_Text">b2Fixture</span>;
+        
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">bodyA</span>:<span class="ActionScriptDefault_Text">b2Body</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">fixtureA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetBody</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">bodyB</span>:<span class="ActionScriptDefault_Text">b2Body</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">fixtureB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetBody</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptComment">// Are the fixtures on the same body?
+</span>        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">bodyA</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">bodyB</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptReserved">return</span>;
+        
+        <span class="ActionScriptComment">// Does a contact already exist?
+</span>        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">edge</span>:<span class="ActionScriptDefault_Text">b2ContactEdge</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">bodyB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetContactList</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptReserved">while</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">edge</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">edge</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">other</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">bodyA</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">fA</span>:<span class="ActionScriptDefault_Text">b2Fixture</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">edge</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">contact</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetFixtureA</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+                <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">fB</span>:<span class="ActionScriptDefault_Text">b2Fixture</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">edge</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">contact</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetFixtureB</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+                <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">fA</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">fixtureA</span> <span class="ActionScriptOperator">&amp;&amp;</span> <span class="ActionScriptDefault_Text">fB</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">fixtureB</span><span class="ActionScriptBracket/Brace">)</span>
+                    <span class="ActionScriptReserved">return</span>;
+                <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">fA</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">fixtureB</span> <span class="ActionScriptOperator">&amp;&amp;</span> <span class="ActionScriptDefault_Text">fB</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">fixtureA</span><span class="ActionScriptBracket/Brace">)</span>
+                    <span class="ActionScriptReserved">return</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+            <span class="ActionScriptDefault_Text">edge</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">edge</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">next</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptComment">//Does a joint override collision? Is at least one body dynamic?
+</span>        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">bodyB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">ShouldCollide</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">bodyA</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">false</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptReserved">return</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptComment">// Check user filtering
+</span>        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_contactFilter</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">ShouldCollide</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">fixtureA</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">fixtureB</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">false</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptReserved">return</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptComment">// Call the factory.
+</span>        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">c</span>:<span class="ActionScriptDefault_Text">b2Contact</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_contactFactory</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Create</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">fixtureA</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">fixtureB</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptComment">// Contact creation may swap shapes.
+</span>        <span class="ActionScriptDefault_Text">fixtureA</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetFixtureA</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">fixtureB</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetFixtureB</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">bodyA</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">fixtureA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_body</span>;
+        <span class="ActionScriptDefault_Text">bodyB</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">fixtureB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_body</span>;
+        
+        <span class="ActionScriptComment">// Insert into the world.
+</span>        <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_prev</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+        <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_next</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_world</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_contactList</span>;
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_world</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_contactList</span> <span class="ActionScriptOperator">!=</span> <span class="ActionScriptReserved">null</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">m_world</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_contactList</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_prev</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptDefault_Text">m_world</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_contactList</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span>;
+        
+        
+        <span class="ActionScriptComment">// Connect to island graph.
+</span>        
+        <span class="ActionScriptComment">// Connect to body A
+</span>        <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">contact</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span>;
+        <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">other</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">bodyB</span>;
+        
+        <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">prev</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+        <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">next</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">bodyA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_contactList</span>;
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">bodyA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_contactList</span> <span class="ActionScriptOperator">!=</span> <span class="ActionScriptReserved">null</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">bodyA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_contactList</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">prev</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeA</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptDefault_Text">bodyA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_contactList</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeA</span>;
+        
+        <span class="ActionScriptComment">// Connect to body 2
+</span>        <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">contact</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span>;
+        <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">other</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">bodyA</span>;
+        
+        <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">prev</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+        <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">next</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">bodyB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_contactList</span>;
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">bodyB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_contactList</span> <span class="ActionScriptOperator">!=</span> <span class="ActionScriptReserved">null</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">bodyB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_contactList</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">prev</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeB</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptDefault_Text">bodyB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_contactList</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeB</span>;
+        
+        <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">m_world</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_contactCount</span>;
+        <span class="ActionScriptReserved">return</span>;
+        
+    <span class="ActionScriptBracket/Brace">}</span>
+
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">FindNewContacts</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_broadPhase</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">UpdatePairs</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">AddPair</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptReserved">static</span> <span class="ActionScriptReserved">private</span> <span class="ActionScriptReserved">const</span> <span class="ActionScriptDefault_Text">s_evalCP</span>:<span class="ActionScriptDefault_Text">b2ContactPoint</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2ContactPoint</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Destroy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">c</span>:<span class="ActionScriptDefault_Text">b2Contact</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">fixtureA</span>:<span class="ActionScriptDefault_Text">b2Fixture</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetFixtureA</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">fixtureB</span>:<span class="ActionScriptDefault_Text">b2Fixture</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetFixtureB</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">bodyA</span>:<span class="ActionScriptDefault_Text">b2Body</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">fixtureA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetBody</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">bodyB</span>:<span class="ActionScriptDefault_Text">b2Body</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">fixtureB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetBody</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">IsTouching</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">m_contactListener</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">EndContact</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">c</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptComment">// Remove from the world.
+</span>        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_prev</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_prev</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_next</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_next</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_next</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_next</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_prev</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_prev</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">c</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">m_world</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_contactList</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">m_world</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_contactList</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_next</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptComment">// Remove from body A
+</span>        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">prev</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">prev</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">next</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">next</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">next</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">next</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">prev</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">prev</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeA</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">bodyA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_contactList</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">bodyA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_contactList</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">next</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptComment">// Remove from body 2
+</span>        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">prev</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">prev</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">next</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">next</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">next</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">next</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">prev</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">prev</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeB</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">bodyB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_contactList</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">bodyB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_contactList</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_nodeB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">next</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptComment">// Call the factory.
+</span>        <span class="ActionScriptDefault_Text">m_contactFactory</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Destroy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">c</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptOperator">--</span><span class="ActionScriptDefault_Text">m_contactCount</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+
+    <span class="ActionScriptComment">// This is the top level collision call for the time step. Here
+</span>    <span class="ActionScriptComment">// all the narrow phase collision is processed for the world
+</span>    <span class="ActionScriptComment">// contact list.
+</span>    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Collide</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptComment">// Update awake contacts.
+</span>        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">c</span>:<span class="ActionScriptDefault_Text">b2Contact</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_world</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_contactList</span>;
+        <span class="ActionScriptReserved">while</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">c</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">fixtureA</span>:<span class="ActionScriptDefault_Text">b2Fixture</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetFixtureA</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">fixtureB</span>:<span class="ActionScriptDefault_Text">b2Fixture</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetFixtureB</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">bodyA</span>:<span class="ActionScriptDefault_Text">b2Body</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">fixtureA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetBody</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">bodyB</span>:<span class="ActionScriptDefault_Text">b2Body</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">fixtureB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetBody</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">bodyA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">IsAwake</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">false</span> <span class="ActionScriptOperator">&amp;&amp;</span> <span class="ActionScriptDefault_Text">bodyB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">IsAwake</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">false</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptDefault_Text">c</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetNext</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+                <span class="ActionScriptReserved">continue</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+            
+            <span class="ActionScriptComment">// Is this contact flagged for filtering?
+</span>            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_flags</span> <span class="ActionScriptOperator">&amp;</span> <span class="ActionScriptDefault_Text">b2Contact</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">e_filterFlag</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptComment">// Should these bodies collide?
+</span>                <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">bodyB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">ShouldCollide</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">bodyA</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">false</span><span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">cNuke</span>:<span class="ActionScriptDefault_Text">b2Contact</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span>;
+                    <span class="ActionScriptDefault_Text">c</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">cNuke</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetNext</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+                    <span class="ActionScriptDefault_Text">Destroy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">cNuke</span><span class="ActionScriptBracket/Brace">)</span>;
+                    <span class="ActionScriptReserved">continue</span>;
+                <span class="ActionScriptBracket/Brace">}</span>
+                
+                <span class="ActionScriptComment">// Check user filtering.
+</span>                <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_contactFilter</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">ShouldCollide</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">fixtureA</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">fixtureB</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">false</span><span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptDefault_Text">cNuke</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span>;
+                    <span class="ActionScriptDefault_Text">c</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">cNuke</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetNext</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+                    <span class="ActionScriptDefault_Text">Destroy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">cNuke</span><span class="ActionScriptBracket/Brace">)</span>;
+                    <span class="ActionScriptReserved">continue</span>;
+                <span class="ActionScriptBracket/Brace">}</span>
+                
+                <span class="ActionScriptComment">// Clear the filtering flag
+</span>                <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_flags</span> <span class="ActionScriptOperator">&amp;=</span> <span class="ActionScriptOperator">~</span><span class="ActionScriptDefault_Text">b2Contact</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">e_filterFlag</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+            
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">proxyA</span>:<span class="ActionScriptOperator">*</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">fixtureA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_proxy</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">proxyB</span>:<span class="ActionScriptOperator">*</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">fixtureB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_proxy</span>;
+            
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">overlap</span>:<span class="ActionScriptDefault_Text">Boolean</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_broadPhase</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">TestOverlap</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">proxyA</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">proxyB</span><span class="ActionScriptBracket/Brace">)</span>;
+            
+            <span class="ActionScriptComment">// Here we destroy contacts that cease to overlap in the broadphase
+</span>            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span> <span class="ActionScriptDefault_Text">overlap</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">false</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptDefault_Text">cNuke</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span>;
+                <span class="ActionScriptDefault_Text">c</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">cNuke</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetNext</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+                <span class="ActionScriptDefault_Text">Destroy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">cNuke</span><span class="ActionScriptBracket/Brace">)</span>;
+                <span class="ActionScriptReserved">continue</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+            
+            <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Update</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_contactListener</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">c</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetNext</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptBracket/Brace">}</span>
+
+    
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_world</span>:<span class="ActionScriptDefault_Text">b2World</span>;
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_broadPhase</span>:<span class="ActionScriptDefault_Text">IBroadPhase</span>;
+    
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_contactList</span>:<span class="ActionScriptDefault_Text">b2Contact</span>;
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_contactCount</span>:<span class="ActionScriptDefault_Text">int</span>;
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_contactFilter</span>:<span class="ActionScriptDefault_Text">b2ContactFilter</span>;
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_contactListener</span>:<span class="ActionScriptDefault_Text">b2ContactListener</span>;
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_contactFactory</span>:<span class="ActionScriptDefault_Text">b2ContactFactory</span>;
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_allocator</span>:<span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptBracket/Brace">}</span>;
+
+<span class="ActionScriptBracket/Brace">}</span>
+</pre></body>
+</html>

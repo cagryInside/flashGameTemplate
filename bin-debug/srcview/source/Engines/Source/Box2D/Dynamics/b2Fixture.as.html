@@ -1,0 +1,382 @@
+<!-- saved from url=(0014)about:internet -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>b2Fixture.as</title>
+<link rel="stylesheet" type="text/css" href="../../../../../SourceStyles.css"/>
+</head>
+
+<body><pre><span class="ActionScriptComment">/*
+* Copyright (c) 2006-2007 Erin Catto http://www.gphysics.com
+*
+* This software is provided 'as-is', without any express or implied
+* warranty.  In no event will the authors be held liable for any damages
+* arising from the use of this software.
+* Permission is granted to anyone to use this software for any purpose,
+* including commercial applications, and to alter it and redistribute it
+* freely, subject to the following restrictions:
+* 1. The origin of this software must not be misrepresented; you must not
+* claim that you wrote the original software. If you use this software
+* in a product, an acknowledgment in the product documentation would be
+* appreciated but is not required.
+* 2. Altered source versions must be plainly marked as such, and must not be
+* misrepresented as being the original software.
+* 3. This notice may not be removed or altered from any source distribution.
+*/</span>
+
+<span class="ActionScriptpackage">package</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptBracket/Brace">{</span>
+
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Shapes</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Contacts</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Joints</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2internal</span>;
+<span class="ActionScriptReserved">use</span> <span class="ActionScriptReserved">namespace</span> <span class="ActionScriptDefault_Text">b2internal</span>;
+
+
+<span class="ActionScriptASDoc">/**
+ * A fixture is used to attach a shape to a body for collision detection. A fixture
+ * inherits its transform from its parent. Fixtures hold additional non-geometric data
+ * such as friction, collision filters, etc.
+ * Fixtures are created via b2Body::CreateFixture.
+ * @warning you cannot reuse fixtures.
+ */</span>
+<span class="ActionScriptReserved">public</span> <span class="ActionScriptclass">class</span> <span class="ActionScriptDefault_Text">b2Fixture</span>
+<span class="ActionScriptBracket/Brace">{</span>
+    <span class="ActionScriptASDoc">/**
+     * Get the type of the child shape. You can use this to down cast to the concrete shape.
+     * @return the shape type.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetType</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">int</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">m_shape</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetType</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Get the child shape. You can modify the child shape, however you should not change the
+     * number of vertices because this will crash some collision caching mechanisms.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetShape</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">b2Shape</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">m_shape</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Set if this fixture is a sensor.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">SetSensor</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">sensor</span>:<span class="ActionScriptDefault_Text">Boolean</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span> <span class="ActionScriptDefault_Text">m_isSensor</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">sensor</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptReserved">return</span>;
+            
+        <span class="ActionScriptDefault_Text">m_isSensor</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">sensor</span>;
+        
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_body</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">null</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptReserved">return</span>;
+            
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">edge</span>:<span class="ActionScriptDefault_Text">b2ContactEdge</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_body</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetContactList</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptReserved">while</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">edge</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">contact</span>:<span class="ActionScriptDefault_Text">b2Contact</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">edge</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">contact</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">fixtureA</span>:<span class="ActionScriptDefault_Text">b2Fixture</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">contact</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetFixtureA</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">fixtureB</span>:<span class="ActionScriptDefault_Text">b2Fixture</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">contact</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetFixtureB</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">fixtureA</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">this</span> <span class="ActionScriptOperator">||</span> <span class="ActionScriptDefault_Text">fixtureB</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">this</span><span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptDefault_Text">contact</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SetSensor</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">fixtureA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">IsSensor</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">||</span> <span class="ActionScriptDefault_Text">fixtureB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">IsSensor</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">edge</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">edge</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">next</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Is this fixture a sensor (non-solid)?
+     * @return the true if the shape is a sensor.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">IsSensor</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">Boolean</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">m_isSensor</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Set the contact filtering data. This will not update contacts until the next time
+     * step when either parent body is active and awake.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">SetFilterData</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">filter</span>:<span class="ActionScriptDefault_Text">b2FilterData</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_filter</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">filter</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Copy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_body</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptReserved">return</span>;
+            
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">edge</span>:<span class="ActionScriptDefault_Text">b2ContactEdge</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_body</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetContactList</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptReserved">while</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">edge</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">contact</span>:<span class="ActionScriptDefault_Text">b2Contact</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">edge</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">contact</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">fixtureA</span>:<span class="ActionScriptDefault_Text">b2Fixture</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">contact</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetFixtureA</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">fixtureB</span>:<span class="ActionScriptDefault_Text">b2Fixture</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">contact</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetFixtureB</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">fixtureA</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">this</span> <span class="ActionScriptOperator">||</span> <span class="ActionScriptDefault_Text">fixtureB</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">this</span><span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptDefault_Text">contact</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">FlagForFiltering</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">edge</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">edge</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">next</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Get the contact filtering data.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetFilterData</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>: <span class="ActionScriptDefault_Text">b2FilterData</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">m_filter</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Copy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Get the parent body of this fixture. This is NULL if the fixture is not attached.
+     * @return the parent body.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetBody</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">b2Body</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">m_body</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Get the next fixture in the parent body's fixture list.
+     * @return the next shape.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetNext</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">b2Fixture</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">m_next</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Get the user data that was assigned in the fixture definition. Use this to
+     * store your application specific data.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetUserData</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptOperator">*</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">m_userData</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Set the user data. Use this to store your application specific data.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">SetUserData</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">data</span>:<span class="ActionScriptOperator">*</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_userData</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">data</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Test a point for containment in this fixture.
+     * @param xf the shape world transform.
+     * @param p a point in world coordinates.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">TestPoint</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">p</span>:<span class="ActionScriptDefault_Text">b2Vec2</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">Boolean</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">m_shape</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">TestPoint</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_body</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetTransform</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">p</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Perform a ray cast against this shape.
+     * @param output the ray-cast results.
+     * @param input the ray-cast input parameters.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">RayCast</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">output</span>:<span class="ActionScriptDefault_Text">b2RayCastOutput</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">input</span>:<span class="ActionScriptDefault_Text">b2RayCastInput</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">Boolean</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">m_shape</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">RayCast</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">output</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">input</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">m_body</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetTransform</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Get the mass data for this fixture. The mass data is based on the density and
+     * the shape. The rotational inertia is about the shape's origin. This operation may be expensive
+     * @param massData - this is a reference to a valid massData, if it is null a new b2MassData is allocated and then returned
+     * @note if the input is null then you must get the return value.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetMassData</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">massData</span>:<span class="ActionScriptDefault_Text">b2MassData</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">b2MassData</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span> <span class="ActionScriptDefault_Text">massData</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">null</span> <span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">massData</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2MassData</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptDefault_Text">m_shape</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">ComputeMass</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">massData</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">m_density</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">massData</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Set the density of this fixture. This will _not_ automatically adjust the mass
+     * of the body. You must call b2Body::ResetMassData to update the body's mass.
+     * @param    density
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">SetDensity</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">density</span>:<span class="ActionScriptDefault_Text">Number</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span> <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptComment">//b2Settings.b2Assert(b2Math.b2IsValid(density) &amp;&amp; density &gt;= 0.0);
+</span>        <span class="ActionScriptDefault_Text">m_density</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">density</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Get the density of this fixture.
+     * @return density
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetDensity</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">m_density</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Get the coefficient of friction.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetFriction</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">Number</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">m_friction</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Set the coefficient of friction.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">SetFriction</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">friction</span>:<span class="ActionScriptDefault_Text">Number</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_friction</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">friction</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Get the coefficient of restitution.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetRestitution</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">Number</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">m_restitution</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Get the coefficient of restitution.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">SetRestitution</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">restitution</span>:<span class="ActionScriptDefault_Text">Number</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_restitution</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">restitution</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Get the fixture's AABB. This AABB may be enlarge and/or stale.
+     * If you need a more accurate AABB, compute it using the shape and
+     * the body transform.
+     * @return
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">GetAABB</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptDefault_Text">b2AABB</span> <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">return</span> <span class="ActionScriptDefault_Text">m_aabb</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * @private
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">b2Fixture</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_aabb</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2AABB</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_userData</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+        <span class="ActionScriptDefault_Text">m_body</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+        <span class="ActionScriptDefault_Text">m_next</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+        <span class="ActionScriptComment">//m_proxyId = b2BroadPhase.e_nullProxy;
+</span>        <span class="ActionScriptDefault_Text">m_shape</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+        <span class="ActionScriptDefault_Text">m_density</span> <span class="ActionScriptOperator">=</span> 0.0;
+        
+        <span class="ActionScriptDefault_Text">m_friction</span> <span class="ActionScriptOperator">=</span> 0.0;
+        <span class="ActionScriptDefault_Text">m_restitution</span> <span class="ActionScriptOperator">=</span> 0.0;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * the destructor cannot access the allocator (no destructor arguments allowed by C++).
+     *  We need separation create/destroy functions from the constructor/destructor because
+     */</span>
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Create</span><span class="ActionScriptBracket/Brace">(</span> <span class="ActionScriptDefault_Text">body</span>:<span class="ActionScriptDefault_Text">b2Body</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">xf</span>:<span class="ActionScriptDefault_Text">b2Transform</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">def</span>:<span class="ActionScriptDefault_Text">b2FixtureDef</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_userData</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">def</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">userData</span>;
+        <span class="ActionScriptDefault_Text">m_friction</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">def</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">friction</span>;
+        <span class="ActionScriptDefault_Text">m_restitution</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">def</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">restitution</span>;
+        
+        <span class="ActionScriptDefault_Text">m_body</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">body</span>;
+        <span class="ActionScriptDefault_Text">m_next</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+        
+        <span class="ActionScriptDefault_Text">m_filter</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">def</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">filter</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Copy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptDefault_Text">m_isSensor</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">def</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">isSensor</span>;
+        
+        <span class="ActionScriptDefault_Text">m_shape</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">def</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">shape</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Copy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptDefault_Text">m_density</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">def</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">density</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * the destructor cannot access the allocator (no destructor arguments allowed by C++).
+     *  We need separation create/destroy functions from the constructor/destructor because
+     */</span>
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Destroy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptComment">// The proxy must be destroyed before calling this.
+</span>        <span class="ActionScriptComment">//b2Assert(m_proxyId == b2BroadPhase::e_nullProxy);
+</span>        
+        <span class="ActionScriptComment">// Free the child shape
+</span>        <span class="ActionScriptDefault_Text">m_shape</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * This supports body activation/deactivation.
+     */</span> 
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">CreateProxy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">broadPhase</span>:<span class="ActionScriptDefault_Text">IBroadPhase</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">xf</span>:<span class="ActionScriptDefault_Text">b2Transform</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span> <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptComment">//b2Assert(m_proxyId == b2BroadPhase::e_nullProxy);
+</span>        
+        <span class="ActionScriptComment">// Create proxy in the broad-phase.
+</span>        <span class="ActionScriptDefault_Text">m_shape</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">ComputeAABB</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_aabb</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">xf</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_proxy</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">broadPhase</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">CreateProxy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_aabb</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptReserved">this</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * This supports body activation/deactivation.
+     */</span>
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">DestroyProxy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">broadPhase</span>:<span class="ActionScriptDefault_Text">IBroadPhase</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span> <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_proxy</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">null</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptReserved">return</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptComment">// Destroy proxy in the broad-phase.
+</span>        <span class="ActionScriptDefault_Text">broadPhase</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">DestroyProxy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_proxy</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_proxy</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Synchronize</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">broadPhase</span>:<span class="ActionScriptDefault_Text">IBroadPhase</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">transform1</span>:<span class="ActionScriptDefault_Text">b2Transform</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">transform2</span>:<span class="ActionScriptDefault_Text">b2Transform</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptOperator">!</span><span class="ActionScriptDefault_Text">m_proxy</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptReserved">return</span>;
+            
+        <span class="ActionScriptComment">// Compute an AABB that ocvers the swept shape (may miss some rotation effect)
+</span>        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">aabb1</span>:<span class="ActionScriptDefault_Text">b2AABB</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2AABB</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">aabb2</span>:<span class="ActionScriptDefault_Text">b2AABB</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2AABB</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_shape</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">ComputeAABB</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">aabb1</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">transform1</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_shape</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">ComputeAABB</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">aabb2</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">transform2</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptDefault_Text">m_aabb</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Combine</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">aabb1</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">aabb2</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">displacement</span>:<span class="ActionScriptDefault_Text">b2Vec2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SubtractVV</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">transform2</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">position</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">transform1</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">position</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">broadPhase</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">MoveProxy</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_proxy</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">m_aabb</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">displacement</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_massData</span>:<span class="ActionScriptDefault_Text">b2MassData</span>;
+    
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_aabb</span>:<span class="ActionScriptDefault_Text">b2AABB</span>;
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_density</span>:<span class="ActionScriptDefault_Text">Number</span>;
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_next</span>:<span class="ActionScriptDefault_Text">b2Fixture</span>;
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_body</span>:<span class="ActionScriptDefault_Text">b2Body</span>;
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_shape</span>:<span class="ActionScriptDefault_Text">b2Shape</span>;
+    
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_friction</span>:<span class="ActionScriptDefault_Text">Number</span>;
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_restitution</span>:<span class="ActionScriptDefault_Text">Number</span>;
+    
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_proxy</span>:<span class="ActionScriptOperator">*</span>;
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_filter</span>:<span class="ActionScriptDefault_Text">b2FilterData</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2FilterData</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+    
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_isSensor</span>:<span class="ActionScriptDefault_Text">Boolean</span>;
+    
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_userData</span>:<span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptBracket/Brace">}</span>;
+
+
+
+<span class="ActionScriptBracket/Brace">}</span>
+</pre></body>
+</html>

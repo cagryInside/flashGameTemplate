@@ -1,0 +1,87 @@
+<!-- saved from url=(0014)about:internet -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>b2FrictionJointDef.as</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../SourceStyles.css"/>
+</head>
+
+<body><pre><span class="ActionScriptComment">/*
+* Copyright (c) 2006-2007 Erin Catto http://www.gphysics.com
+*
+* This software is provided 'as-is', without any express or implied
+* warranty.  In no event will the authors be held liable for any damages
+* arising from the use of this software.
+* Permission is granted to anyone to use this software for any purpose,
+* including commercial applications, and to alter it and redistribute it
+* freely, subject to the following restrictions:
+* 1. The origin of this software must not be misrepresented; you must not
+* claim that you wrote the original software. If you use this software
+* in a product, an acknowledgment in the product documentation would be
+* appreciated but is not required.
+* 2. Altered source versions must be plainly marked as such, and must not be
+* misrepresented as being the original software.
+* 3. This notice may not be removed or altered from any source distribution.
+*/</span>
+
+<span class="ActionScriptpackage">package</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Joints</span><span class="ActionScriptBracket/Brace">{</span>
+
+    
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Joints</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2internal</span>;
+<span class="ActionScriptReserved">use</span> <span class="ActionScriptReserved">namespace</span> <span class="ActionScriptDefault_Text">b2internal</span>;
+
+
+<span class="ActionScriptASDoc">/**
+ * Friction joint defintion
+ * @see b2FrictionJoint
+ */</span>
+<span class="ActionScriptReserved">public</span> <span class="ActionScriptclass">class</span> <span class="ActionScriptDefault_Text">b2FrictionJointDef</span> <span class="ActionScriptReserved">extends</span> <span class="ActionScriptDefault_Text">b2JointDef</span>
+<span class="ActionScriptBracket/Brace">{</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">b2FrictionJointDef</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">type</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2Joint</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">e_frictionJoint</span>;
+        <span class="ActionScriptDefault_Text">maxForce</span> <span class="ActionScriptOperator">=</span> 0.0;
+        <span class="ActionScriptDefault_Text">maxTorque</span> <span class="ActionScriptOperator">=</span> 0.0;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptASDoc">/**
+     * Initialize the bodies, anchors, axis, and reference angle using the world
+     * anchor and world axis.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Initialize</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">bA</span>:<span class="ActionScriptDefault_Text">b2Body</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">bB</span>:<span class="ActionScriptDefault_Text">b2Body</span><span class="ActionScriptOperator">,</span>
+                                <span class="ActionScriptDefault_Text">anchor</span>:<span class="ActionScriptDefault_Text">b2Vec2</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">bodyA</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">bA</span>;
+        <span class="ActionScriptDefault_Text">bodyB</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">bB</span>;
+        <span class="ActionScriptDefault_Text">localAnchorA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SetV</span><span class="ActionScriptBracket/Brace">(</span> <span class="ActionScriptDefault_Text">bodyA</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetLocalPoint</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">anchor</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">localAnchorB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SetV</span><span class="ActionScriptBracket/Brace">(</span> <span class="ActionScriptDefault_Text">bodyB</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetLocalPoint</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">anchor</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+
+    <span class="ActionScriptASDoc">/**
+    * The local anchor point relative to bodyA's origin.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">localAnchorA</span>:<span class="ActionScriptDefault_Text">b2Vec2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2Vec2</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+
+    <span class="ActionScriptASDoc">/**
+    * The local anchor point relative to bodyB's origin.
+    */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">localAnchorB</span>:<span class="ActionScriptDefault_Text">b2Vec2</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2Vec2</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+
+    <span class="ActionScriptASDoc">/**
+     * The maximun force in N.
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">maxForce</span>:<span class="ActionScriptDefault_Text">Number</span>;
+    
+    <span class="ActionScriptASDoc">/**
+     * The maximun friction torque in N-m
+     */</span>
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">maxTorque</span>:<span class="ActionScriptDefault_Text">Number</span>;
+<span class="ActionScriptBracket/Brace">}</span>;
+
+<span class="ActionScriptBracket/Brace">}</span></pre></body>
+</html>

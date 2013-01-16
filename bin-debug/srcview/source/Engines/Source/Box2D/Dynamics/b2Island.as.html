@@ -1,0 +1,515 @@
+<!-- saved from url=(0014)about:internet -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>b2Island.as</title>
+<link rel="stylesheet" type="text/css" href="../../../../../SourceStyles.css"/>
+</head>
+
+<body><pre><span class="ActionScriptComment">/*
+* Copyright (c) 2006-2007 Erin Catto http://www.gphysics.com
+*
+* This software is provided 'as-is', without any express or implied
+* warranty.  In no event will the authors be held liable for any damages
+* arising from the use of this software.
+* Permission is granted to anyone to use this software for any purpose,
+* including commercial applications, and to alter it and redistribute it
+* freely, subject to the following restrictions:
+* 1. The origin of this software must not be misrepresented; you must not
+* claim that you wrote the original software. If you use this software
+* in a product, an acknowledgment in the product documentation would be
+* appreciated but is not required.
+* 2. Altered source versions must be plainly marked as such, and must not be
+* misrepresented as being the original software.
+* 3. This notice may not be removed or altered from any source distribution.
+*/</span>
+
+<span class="ActionScriptpackage">package</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptBracket/Brace">{</span>
+
+    
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Contacts</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dynamics</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Joints</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Collision</span><span class="ActionScriptOperator">.</span><span class="ActionScriptOperator">*</span>;
+
+<span class="ActionScriptReserved">import</span> <span class="ActionScriptDefault_Text">Box2D</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Common</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2internal</span>;
+<span class="ActionScriptReserved">use</span> <span class="ActionScriptReserved">namespace</span> <span class="ActionScriptDefault_Text">b2internal</span>;
+
+
+<span class="ActionScriptComment">/*
+Position Correction Notes
+=========================
+I tried the several algorithms for position correction of the 2D revolute joint.
+I looked at these systems:
+- simple pendulum (1m diameter sphere on massless 5m stick) with initial angular velocity of 100 rad/s.
+- suspension bridge with 30 1m long planks of length 1m.
+- multi-link chain with 30 1m long links.
+
+Here are the algorithms:
+
+Baumgarte - A fraction of the position error is added to the velocity error. There is no
+separate position solver.
+
+Pseudo Velocities - After the velocity solver and position integration,
+the position error, Jacobian, and effective mass are recomputed. Then
+the velocity constraints are solved with pseudo velocities and a fraction
+of the position error is added to the pseudo velocity error. The pseudo
+velocities are initialized to zero and there is no warm-starting. After
+the position solver, the pseudo velocities are added to the positions.
+This is also called the First Order World method or the Position LCP method.
+
+Modified Nonlinear Gauss-Seidel (NGS) - Like Pseudo Velocities except the
+position error is re-computed for each constraint and the positions are updated
+after the constraint is solved. The radius vectors (aka Jacobians) are
+re-computed too (otherwise the algorithm has horrible instability). The pseudo
+velocity states are not needed because they are effectively zero at the beginning
+of each iteration. Since we have the current position error, we allow the
+iterations to terminate early if the error becomes smaller than b2_linearSlop.
+
+Full NGS or just NGS - Like Modified NGS except the effective mass are re-computed
+each time a constraint is solved.
+
+Here are the results:
+Baumgarte - this is the cheapest algorithm but it has some stability problems,
+especially with the bridge. The chain links separate easily close to the root
+and they jitter as they struggle to pull together. This is one of the most common
+methods in the field. The big drawback is that the position correction artificially
+affects the momentum, thus leading to instabilities and false bounce. I used a
+bias factor of 0.2. A larger bias factor makes the bridge less stable, a smaller
+factor makes joints and contacts more spongy.
+
+Pseudo Velocities - the is more stable than the Baumgarte method. The bridge is
+stable. However, joints still separate with large angular velocities. Drag the
+simple pendulum in a circle quickly and the joint will separate. The chain separates
+easily and does not recover. I used a bias factor of 0.2. A larger value lead to
+the bridge collapsing when a heavy cube drops on it.
+
+Modified NGS - this algorithm is better in some ways than Baumgarte and Pseudo
+Velocities, but in other ways it is worse. The bridge and chain are much more
+stable, but the simple pendulum goes unstable at high angular velocities.
+
+Full NGS - stable in all tests. The joints display good stiffness. The bridge
+still sags, but this is better than infinite forces.
+
+Recommendations
+Pseudo Velocities are not really worthwhile because the bridge and chain cannot
+recover from joint separation. In other cases the benefit over Baumgarte is small.
+
+Modified NGS is not a robust method for the revolute joint due to the violent
+instability seen in the simple pendulum. Perhaps it is viable with other constraint
+types, especially scalar constraints where the effective mass is a scalar.
+
+This leaves Baumgarte and Full NGS. Baumgarte has small, but manageable instabilities
+and is very fast. I don't think we can escape Baumgarte, especially in highly
+demanding cases where high constraint fidelity is not needed.
+
+Full NGS is robust and easy on the eyes. I recommend this as an option for
+higher fidelity simulation and certainly for suspension bridges and long chains.
+Full NGS might be a good choice for ragdolls, especially motorized ragdolls where
+joint separation can be problematic. The number of NGS iterations can be reduced
+for better performance without harming robustness much.
+
+Each joint in a can be handled differently in the position solver. So I recommend
+a system where the user can select the algorithm on a per joint basis. I would
+probably default to the slower Full NGS and let the user select the faster
+Baumgarte method in performance critical scenarios.
+*/</span>
+
+
+<span class="ActionScriptASDoc">/**
+* @private
+*/</span>
+<span class="ActionScriptReserved">public</span> <span class="ActionScriptclass">class</span> <span class="ActionScriptDefault_Text">b2Island</span>
+<span class="ActionScriptBracket/Brace">{</span>
+    
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">b2Island</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_bodies</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">b2Body</span><span class="ActionScriptBracket/Brace">&gt;</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_contacts</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">b2Contact</span><span class="ActionScriptBracket/Brace">&gt;</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptDefault_Text">m_joints</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">b2Joint</span><span class="ActionScriptBracket/Brace">&gt;</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Initialize</span><span class="ActionScriptBracket/Brace">(</span>
+    <span class="ActionScriptDefault_Text">bodyCapacity</span>:<span class="ActionScriptDefault_Text">int</span><span class="ActionScriptOperator">,</span>
+    <span class="ActionScriptDefault_Text">contactCapacity</span>:<span class="ActionScriptDefault_Text">int</span><span class="ActionScriptOperator">,</span>
+    <span class="ActionScriptDefault_Text">jointCapacity</span>:<span class="ActionScriptDefault_Text">int</span><span class="ActionScriptOperator">,</span>
+    <span class="ActionScriptDefault_Text">allocator</span>:<span class="ActionScriptOperator">*</span><span class="ActionScriptOperator">,</span>
+    <span class="ActionScriptDefault_Text">listener</span>:<span class="ActionScriptDefault_Text">b2ContactListener</span><span class="ActionScriptOperator">,</span>
+    <span class="ActionScriptDefault_Text">contactSolver</span>:<span class="ActionScriptDefault_Text">b2ContactSolver</span><span class="ActionScriptBracket/Brace">)</span>:<span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">i</span>:<span class="ActionScriptDefault_Text">int</span>;
+        
+        <span class="ActionScriptDefault_Text">m_bodyCapacity</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">bodyCapacity</span>;
+        <span class="ActionScriptDefault_Text">m_contactCapacity</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">contactCapacity</span>;
+        <span class="ActionScriptDefault_Text">m_jointCapacity</span>     <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">jointCapacity</span>;
+        <span class="ActionScriptDefault_Text">m_bodyCount</span> <span class="ActionScriptOperator">=</span> 0;
+        <span class="ActionScriptDefault_Text">m_contactCount</span> <span class="ActionScriptOperator">=</span> 0;
+        <span class="ActionScriptDefault_Text">m_jointCount</span> <span class="ActionScriptOperator">=</span> 0;
+        
+        <span class="ActionScriptDefault_Text">m_allocator</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">allocator</span>;
+        <span class="ActionScriptDefault_Text">m_listener</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">listener</span>;
+        <span class="ActionScriptDefault_Text">m_contactSolver</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">contactSolver</span>;
+        
+        <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_bodies</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">length</span>; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">bodyCapacity</span>; <span class="ActionScriptDefault_Text">i</span><span class="ActionScriptOperator">++</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptDefault_Text">m_bodies</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+        
+        <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_contacts</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">length</span>; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">contactCapacity</span>; <span class="ActionScriptDefault_Text">i</span><span class="ActionScriptOperator">++</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptDefault_Text">m_contacts</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+        
+        <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_joints</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">length</span>; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">jointCapacity</span>; <span class="ActionScriptDefault_Text">i</span><span class="ActionScriptOperator">++</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptDefault_Text">m_joints</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">null</span>;
+        
+    <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptComment">//~b2Island();
+</span>    
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Clear</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptDefault_Text">m_bodyCount</span> <span class="ActionScriptOperator">=</span> 0;
+        <span class="ActionScriptDefault_Text">m_contactCount</span> <span class="ActionScriptOperator">=</span> 0;
+        <span class="ActionScriptDefault_Text">m_jointCount</span> <span class="ActionScriptOperator">=</span> 0;
+    <span class="ActionScriptBracket/Brace">}</span>
+
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Solve</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">step</span>:<span class="ActionScriptDefault_Text">b2TimeStep</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">gravity</span>:<span class="ActionScriptDefault_Text">b2Vec2</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">allowSleep</span>:<span class="ActionScriptDefault_Text">Boolean</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">i</span>:<span class="ActionScriptDefault_Text">int</span>;
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">j</span>:<span class="ActionScriptDefault_Text">int</span>;
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">b</span>:<span class="ActionScriptDefault_Text">b2Body</span>;
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">joint</span>:<span class="ActionScriptDefault_Text">b2Joint</span>;
+        
+        <span class="ActionScriptComment">// Integrate velocities and apply damping.
+</span>        <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">m_bodyCount</span>; <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">b</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_bodies</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span>;
+            
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetType</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">!=</span> <span class="ActionScriptDefault_Text">b2Body</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_dynamicBody</span><span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptReserved">continue</span>;
+            
+            <span class="ActionScriptComment">// Integrate velocities.
+</span>            <span class="ActionScriptComment">//b.m_linearVelocity += step.dt * (gravity + b.m_invMass * b.m_force);
+</span>            <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_linearVelocity</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">+=</span> <span class="ActionScriptDefault_Text">step</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">dt</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">gravity</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_invMass</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_force</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_linearVelocity</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">+=</span> <span class="ActionScriptDefault_Text">step</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">dt</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">gravity</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">+</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_invMass</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_force</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_angularVelocity</span> <span class="ActionScriptOperator">+=</span> <span class="ActionScriptDefault_Text">step</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">dt</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_invI</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_torque</span>;
+            
+            <span class="ActionScriptComment">// Apply damping.
+</span>            <span class="ActionScriptComment">// ODE: dv/dt + c * v = 0
+</span>            <span class="ActionScriptComment">// Solution: v(t) = v0 * exp(-c * t)
+</span>            <span class="ActionScriptComment">// Time step: v(t + dt) = v0 * exp(-c * (t + dt)) = v0 * exp(-c * t) * exp(-c * dt) = v * exp(-c * dt)
+</span>            <span class="ActionScriptComment">// v2 = exp(-c * dt) * v1
+</span>            <span class="ActionScriptComment">// Taylor expansion:
+</span>            <span class="ActionScriptComment">// v2 = (1.0f - c * dt) * v1
+</span>            <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_linearVelocity</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Multiply</span><span class="ActionScriptBracket/Brace">(</span> <span class="ActionScriptDefault_Text">b2Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Clamp</span><span class="ActionScriptBracket/Brace">(</span>1.0 <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">step</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">dt</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_linearDamping</span><span class="ActionScriptOperator">,</span> 0.0<span class="ActionScriptOperator">,</span> 1.0<span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_angularVelocity</span> <span class="ActionScriptOperator">*=</span> <span class="ActionScriptDefault_Text">b2Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Clamp</span><span class="ActionScriptBracket/Brace">(</span>1.0 <span class="ActionScriptOperator">-</span> <span class="ActionScriptDefault_Text">step</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">dt</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_angularDamping</span><span class="ActionScriptOperator">,</span> 0.0<span class="ActionScriptOperator">,</span> 1.0<span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptDefault_Text">m_contactSolver</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Initialize</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">step</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">m_contacts</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">m_contactCount</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">m_allocator</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">contactSolver</span>:<span class="ActionScriptDefault_Text">b2ContactSolver</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_contactSolver</span>;
+
+        <span class="ActionScriptComment">// Initialize velocity constraints.
+</span>        <span class="ActionScriptDefault_Text">contactSolver</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">InitVelocityConstraints</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">step</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">m_jointCount</span>; <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">joint</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_joints</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span>;
+            <span class="ActionScriptDefault_Text">joint</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">InitVelocityConstraints</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">step</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptComment">// Solve velocity constraints.
+</span>        <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">step</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">velocityIterations</span>; <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>    
+            <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">j</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">j</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">m_jointCount</span>; <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">j</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptDefault_Text">joint</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_joints</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">j</span><span class="ActionScriptBracket/Brace">]</span>;
+                <span class="ActionScriptDefault_Text">joint</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SolveVelocityConstraints</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">step</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+            
+            <span class="ActionScriptDefault_Text">contactSolver</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SolveVelocityConstraints</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptComment">// Post-solve (store impulses for warm starting).
+</span>        <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">m_jointCount</span>; <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">joint</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_joints</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span>;
+            <span class="ActionScriptDefault_Text">joint</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">FinalizeVelocityConstraints</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptDefault_Text">contactSolver</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">FinalizeVelocityConstraints</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptComment">// Integrate positions.
+</span>        <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">m_bodyCount</span>; <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">b</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_bodies</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span>;
+            
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetType</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">b2Body</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_staticBody</span><span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptReserved">continue</span>;
+                
+            <span class="ActionScriptComment">// Check for large velocities.
+</span>            <span class="ActionScriptComment">// b2Vec2 translation = step.dt * b.m_linearVelocity;
+</span>            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">translationX</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">step</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">dt</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_linearVelocity</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">translationY</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">step</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">dt</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_linearVelocity</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span>;
+            <span class="ActionScriptComment">//if (b2Dot(translation, translation) &gt; b2_maxTranslationSquared)
+</span>            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">translationX</span><span class="ActionScriptOperator">*</span><span class="ActionScriptDefault_Text">translationX</span><span class="ActionScriptOperator">+</span><span class="ActionScriptDefault_Text">translationY</span><span class="ActionScriptOperator">*</span><span class="ActionScriptDefault_Text">translationY</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">&gt;</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_maxTranslationSquared</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_linearVelocity</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Normalize</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+                <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_linearVelocity</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">*=</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_maxTranslation</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">step</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">inv_dt</span>;
+                <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_linearVelocity</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">*=</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_maxTranslation</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">step</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">inv_dt</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">rotation</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">step</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">dt</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_angularVelocity</span>;
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">rotation</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">rotation</span> <span class="ActionScriptOperator">&gt;</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_maxRotationSquared</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_angularVelocity</span> <span class="ActionScriptOperator">&lt;</span> 0.0<span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_angularVelocity</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptOperator">-</span><span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_maxRotation</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">step</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">inv_dt</span>;
+                <span class="ActionScriptBracket/Brace">}</span>
+                <span class="ActionScriptReserved">else</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_angularVelocity</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_maxRotation</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">step</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">inv_dt</span>;
+                <span class="ActionScriptBracket/Brace">}</span>
+            <span class="ActionScriptBracket/Brace">}</span>
+            
+            <span class="ActionScriptComment">// Store positions for continuous collision.
+</span>            <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_sweep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">c0</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SetV</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_sweep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">c</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_sweep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">a0</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_sweep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">a</span>;
+            
+            <span class="ActionScriptComment">// Integrate
+</span>            <span class="ActionScriptComment">//b.m_sweep.c += step.dt * b.m_linearVelocity;
+</span>            <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_sweep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">+=</span> <span class="ActionScriptDefault_Text">step</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">dt</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_linearVelocity</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span>;
+            <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_sweep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">+=</span> <span class="ActionScriptDefault_Text">step</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">dt</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_linearVelocity</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span>;
+            <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_sweep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">a</span> <span class="ActionScriptOperator">+=</span> <span class="ActionScriptDefault_Text">step</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">dt</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_angularVelocity</span>;
+            
+            <span class="ActionScriptComment">// Compute new transform
+</span>            <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SynchronizeTransform</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            
+            <span class="ActionScriptComment">// Note: shapes are synchronized later.
+</span>        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptComment">// Iterate over constraints.
+</span>        <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">step</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">positionIterations</span>; <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">contactsOkay</span>:<span class="ActionScriptDefault_Text">Boolean</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">contactSolver</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SolvePositionConstraints</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_contactBaumgarte</span><span class="ActionScriptBracket/Brace">)</span>;
+            
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">jointsOkay</span>:<span class="ActionScriptDefault_Text">Boolean</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">true</span>;
+            <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">j</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">j</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">m_jointCount</span>; <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">j</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptDefault_Text">joint</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_joints</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">j</span><span class="ActionScriptBracket/Brace">]</span>;
+                <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">jointOkay</span>:<span class="ActionScriptDefault_Text">Boolean</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">joint</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SolvePositionConstraints</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_contactBaumgarte</span><span class="ActionScriptBracket/Brace">)</span>;
+                <span class="ActionScriptDefault_Text">jointsOkay</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">jointsOkay</span> <span class="ActionScriptOperator">&amp;&amp;</span> <span class="ActionScriptDefault_Text">jointOkay</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+            
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">contactsOkay</span> <span class="ActionScriptOperator">&amp;&amp;</span> <span class="ActionScriptDefault_Text">jointsOkay</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptReserved">break</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptDefault_Text">Report</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">contactSolver</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_constraints</span><span class="ActionScriptBracket/Brace">)</span>;
+        
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">allowSleep</span><span class="ActionScriptBracket/Brace">)</span><span class="ActionScriptBracket/Brace">{</span>
+            
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">minSleepTime</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">Number</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">MAX_VALUE</span>;
+            
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">linTolSqr</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_linearSleepTolerance</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_linearSleepTolerance</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">angTolSqr</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_angularSleepTolerance</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_angularSleepTolerance</span>;
+            
+            <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">m_bodyCount</span>; <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptDefault_Text">b</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_bodies</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span>;
+                <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetType</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">b2Body</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_staticBody</span><span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptReserved">continue</span>;
+                <span class="ActionScriptBracket/Brace">}</span>
+                
+                <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_flags</span> <span class="ActionScriptOperator">&amp;</span> <span class="ActionScriptDefault_Text">b2Body</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">e_allowSleepFlag</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">==</span> 0<span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_sleepTime</span> <span class="ActionScriptOperator">=</span> 0.0;
+                    <span class="ActionScriptDefault_Text">minSleepTime</span> <span class="ActionScriptOperator">=</span> 0.0;
+                <span class="ActionScriptBracket/Brace">}</span>
+                
+                <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_flags</span> <span class="ActionScriptOperator">&amp;</span> <span class="ActionScriptDefault_Text">b2Body</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">e_allowSleepFlag</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">==</span> 0 <span class="ActionScriptOperator">||</span>
+                    <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_angularVelocity</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_angularVelocity</span> <span class="ActionScriptOperator">&gt;</span> <span class="ActionScriptDefault_Text">angTolSqr</span> <span class="ActionScriptOperator">||</span>
+                    <span class="ActionScriptDefault_Text">b2Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Dot</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_linearVelocity</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_linearVelocity</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">&gt;</span> <span class="ActionScriptDefault_Text">linTolSqr</span><span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_sleepTime</span> <span class="ActionScriptOperator">=</span> 0.0;
+                    <span class="ActionScriptDefault_Text">minSleepTime</span> <span class="ActionScriptOperator">=</span> 0.0;
+                <span class="ActionScriptBracket/Brace">}</span>
+                <span class="ActionScriptReserved">else</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_sleepTime</span> <span class="ActionScriptOperator">+=</span> <span class="ActionScriptDefault_Text">step</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">dt</span>;
+                    <span class="ActionScriptDefault_Text">minSleepTime</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2Math</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Min</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">minSleepTime</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_sleepTime</span><span class="ActionScriptBracket/Brace">)</span>;
+                <span class="ActionScriptBracket/Brace">}</span>
+            <span class="ActionScriptBracket/Brace">}</span>
+            
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">minSleepTime</span> <span class="ActionScriptOperator">&gt;=</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_timeToSleep</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">m_bodyCount</span>; <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptDefault_Text">b</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_bodies</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span>; 
+                    <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SetAwake</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptReserved">false</span><span class="ActionScriptBracket/Brace">)</span>;
+                <span class="ActionScriptBracket/Brace">}</span>
+            <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+    
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">SolveTOI</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">subStep</span>:<span class="ActionScriptDefault_Text">b2TimeStep</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">i</span>:<span class="ActionScriptDefault_Text">int</span>;
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">j</span>:<span class="ActionScriptDefault_Text">int</span>;
+        <span class="ActionScriptDefault_Text">m_contactSolver</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Initialize</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">subStep</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">m_contacts</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">m_contactCount</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">m_allocator</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">contactSolver</span>:<span class="ActionScriptDefault_Text">b2ContactSolver</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_contactSolver</span>;
+        
+        <span class="ActionScriptComment">// No warm starting is needed for TOI events because warm
+</span>        <span class="ActionScriptComment">// starting impulses were applied in the discrete solver.
+</span>
+        <span class="ActionScriptComment">// Warm starting for joints is off for now, but we need to
+</span>        <span class="ActionScriptComment">// call this function to compute Jacobians.
+</span>        <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">m_jointCount</span>;<span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">m_joints</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">InitVelocityConstraints</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">subStep</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        
+        <span class="ActionScriptComment">// Solve velocity constraints.
+</span>        <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">subStep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">velocityIterations</span>; <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptDefault_Text">contactSolver</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SolveVelocityConstraints</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">j</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">j</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">m_jointCount</span>;<span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">j</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptDefault_Text">m_joints</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">j</span><span class="ActionScriptBracket/Brace">]</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SolveVelocityConstraints</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">subStep</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptComment">// Don't store the TOI contact forces for warm starting
+</span>        <span class="ActionScriptComment">// because they can be quite large.
+</span>        
+        <span class="ActionScriptComment">// Integrate positions.
+</span>        <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">m_bodyCount</span>; <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">b</span>:<span class="ActionScriptDefault_Text">b2Body</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_bodies</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span>;
+            
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">GetType</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptDefault_Text">b2Body</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_staticBody</span><span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptReserved">continue</span>;
+                
+            <span class="ActionScriptComment">// Check for large velocities.
+</span>            <span class="ActionScriptComment">// b2Vec2 translation = subStep.dt * b.m_linearVelocity;
+</span>            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">translationX</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">subStep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">dt</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_linearVelocity</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">translationY</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">subStep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">dt</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_linearVelocity</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span>;
+            <span class="ActionScriptComment">//if (b2Dot(translation, translation) &gt; b2_maxTranslationSquared)
+</span>            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">translationX</span><span class="ActionScriptOperator">*</span><span class="ActionScriptDefault_Text">translationX</span><span class="ActionScriptOperator">+</span><span class="ActionScriptDefault_Text">translationY</span><span class="ActionScriptOperator">*</span><span class="ActionScriptDefault_Text">translationY</span><span class="ActionScriptBracket/Brace">)</span> <span class="ActionScriptOperator">&gt;</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_maxTranslationSquared</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_linearVelocity</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">Normalize</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+                <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_linearVelocity</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">*=</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_maxTranslation</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">subStep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">inv_dt</span>;
+                <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_linearVelocity</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">*=</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_maxTranslation</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">subStep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">inv_dt</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+            
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">rotation</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">subStep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">dt</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_angularVelocity</span>;
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">rotation</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">rotation</span> <span class="ActionScriptOperator">&gt;</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_maxRotationSquared</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_angularVelocity</span> <span class="ActionScriptOperator">&lt;</span> 0.0<span class="ActionScriptBracket/Brace">)</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_angularVelocity</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptOperator">-</span><span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_maxRotation</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">subStep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">inv_dt</span>;
+                <span class="ActionScriptBracket/Brace">}</span>
+                <span class="ActionScriptReserved">else</span>
+                <span class="ActionScriptBracket/Brace">{</span>
+                    <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_angularVelocity</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_maxRotation</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">subStep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">inv_dt</span>;
+                <span class="ActionScriptBracket/Brace">}</span>
+            <span class="ActionScriptBracket/Brace">}</span>
+            
+            <span class="ActionScriptComment">// Store positions for continuous collision.
+</span>            <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_sweep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">c0</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SetV</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_sweep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">c</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_sweep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">a0</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_sweep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">a</span>;
+            
+            <span class="ActionScriptComment">// Integrate
+</span>            <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_sweep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span> <span class="ActionScriptOperator">+=</span> <span class="ActionScriptDefault_Text">subStep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">dt</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_linearVelocity</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">x</span>;
+            <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_sweep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span> <span class="ActionScriptOperator">+=</span> <span class="ActionScriptDefault_Text">subStep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">dt</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_linearVelocity</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">y</span>;
+            <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_sweep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">a</span> <span class="ActionScriptOperator">+=</span> <span class="ActionScriptDefault_Text">subStep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">dt</span> <span class="ActionScriptOperator">*</span> <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_angularVelocity</span>;
+            
+            <span class="ActionScriptComment">// Compute new transform
+</span>            <span class="ActionScriptDefault_Text">b</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SynchronizeTransform</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+            
+            <span class="ActionScriptComment">// Note: shapes are synchronized later.
+</span>        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptComment">// Solve position constraints.
+</span>        <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">k_toiBaumgarte</span>:<span class="ActionScriptDefault_Text">Number</span> <span class="ActionScriptOperator">=</span> 0.75;
+        <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">subStep</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">positionIterations</span>; <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">contactsOkay</span>:<span class="ActionScriptDefault_Text">Boolean</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">contactSolver</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SolvePositionConstraints</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">k_toiBaumgarte</span><span class="ActionScriptBracket/Brace">)</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">jointsOkay</span>:<span class="ActionScriptDefault_Text">Boolean</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">true</span>;
+            <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">j</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">j</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">m_jointCount</span>;<span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">j</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">jointOkay</span>:<span class="ActionScriptDefault_Text">Boolean</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_joints</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">j</span><span class="ActionScriptBracket/Brace">]</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">SolvePositionConstraints</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">b2Settings</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">b2_contactBaumgarte</span><span class="ActionScriptBracket/Brace">)</span>;
+                <span class="ActionScriptDefault_Text">jointsOkay</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">jointsOkay</span> <span class="ActionScriptOperator">&amp;&amp;</span> <span class="ActionScriptDefault_Text">jointOkay</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+            
+            <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">contactsOkay</span> <span class="ActionScriptOperator">&amp;&amp;</span> <span class="ActionScriptDefault_Text">jointsOkay</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptReserved">break</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptBracket/Brace">}</span>
+        <span class="ActionScriptDefault_Text">Report</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">contactSolver</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_constraints</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptReserved">static</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">s_impulse</span>:<span class="ActionScriptDefault_Text">b2ContactImpulse</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptReserved">new</span> <span class="ActionScriptDefault_Text">b2ContactImpulse</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptBracket/Brace">)</span>;
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">Report</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">constraints</span>:<span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">b2ContactConstraint</span><span class="ActionScriptBracket/Brace">&gt;</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptReserved">if</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">m_listener</span> <span class="ActionScriptOperator">==</span> <span class="ActionScriptReserved">null</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptReserved">return</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+        
+        <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">i</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">m_contactCount</span>; <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">)</span>
+        <span class="ActionScriptBracket/Brace">{</span>
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">c</span>:<span class="ActionScriptDefault_Text">b2Contact</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_contacts</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">i</span><span class="ActionScriptBracket/Brace">]</span>;
+            <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">cc</span>:<span class="ActionScriptDefault_Text">b2ContactConstraint</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">constraints</span><span class="ActionScriptBracket/Brace">[</span> <span class="ActionScriptDefault_Text">i</span> <span class="ActionScriptBracket/Brace">]</span>;
+            
+            <span class="ActionScriptReserved">for</span> <span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">j</span>:<span class="ActionScriptDefault_Text">int</span> <span class="ActionScriptOperator">=</span> 0; <span class="ActionScriptDefault_Text">j</span> <span class="ActionScriptOperator">&lt;</span> <span class="ActionScriptDefault_Text">cc</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">pointCount</span>; <span class="ActionScriptOperator">++</span><span class="ActionScriptDefault_Text">j</span><span class="ActionScriptBracket/Brace">)</span>
+            <span class="ActionScriptBracket/Brace">{</span>
+                <span class="ActionScriptDefault_Text">s_impulse</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">normalImpulses</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">j</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">cc</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">points</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">j</span><span class="ActionScriptBracket/Brace">]</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">normalImpulse</span>;
+                <span class="ActionScriptDefault_Text">s_impulse</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">tangentImpulses</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">j</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">cc</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">points</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">j</span><span class="ActionScriptBracket/Brace">]</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">tangentImpulse</span>;
+            <span class="ActionScriptBracket/Brace">}</span>
+            <span class="ActionScriptDefault_Text">m_listener</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">PostSolve</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">c</span><span class="ActionScriptOperator">,</span> <span class="ActionScriptDefault_Text">s_impulse</span><span class="ActionScriptBracket/Brace">)</span>;
+        <span class="ActionScriptBracket/Brace">}</span>
+    <span class="ActionScriptBracket/Brace">}</span>
+    
+
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">AddBody</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">body</span>:<span class="ActionScriptDefault_Text">b2Body</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptComment">//b2Settings.b2Assert(m_bodyCount &lt; m_bodyCapacity);
+</span>        <span class="ActionScriptDefault_Text">body</span><span class="ActionScriptOperator">.</span><span class="ActionScriptDefault_Text">m_islandIndex</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">m_bodyCount</span>;
+        <span class="ActionScriptDefault_Text">m_bodies</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">m_bodyCount</span><span class="ActionScriptOperator">++</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">body</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">AddContact</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">contact</span>:<span class="ActionScriptDefault_Text">b2Contact</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptComment">//b2Settings.b2Assert(m_contactCount &lt; m_contactCapacity);
+</span>        <span class="ActionScriptDefault_Text">m_contacts</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">m_contactCount</span><span class="ActionScriptOperator">++</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">contact</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+
+    <span class="ActionScriptReserved">public</span> <span class="ActionScriptfunction">function</span> <span class="ActionScriptDefault_Text">AddJoint</span><span class="ActionScriptBracket/Brace">(</span><span class="ActionScriptDefault_Text">joint</span>:<span class="ActionScriptDefault_Text">b2Joint</span><span class="ActionScriptBracket/Brace">)</span> : <span class="ActionScriptReserved">void</span>
+    <span class="ActionScriptBracket/Brace">{</span>
+        <span class="ActionScriptComment">//b2Settings.b2Assert(m_jointCount &lt; m_jointCapacity);
+</span>        <span class="ActionScriptDefault_Text">m_joints</span><span class="ActionScriptBracket/Brace">[</span><span class="ActionScriptDefault_Text">m_jointCount</span><span class="ActionScriptOperator">++</span><span class="ActionScriptBracket/Brace">]</span> <span class="ActionScriptOperator">=</span> <span class="ActionScriptDefault_Text">joint</span>;
+    <span class="ActionScriptBracket/Brace">}</span>
+
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_allocator</span>:<span class="ActionScriptOperator">*</span>;
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_listener</span>:<span class="ActionScriptDefault_Text">b2ContactListener</span>;
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_contactSolver</span>:<span class="ActionScriptDefault_Text">b2ContactSolver</span>;
+
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_bodies</span>:<span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">b2Body</span><span class="ActionScriptBracket/Brace">&gt;</span>;
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_contacts</span>:<span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">b2Contact</span><span class="ActionScriptBracket/Brace">&gt;</span>;
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_joints</span>:<span class="ActionScriptDefault_Text">Vector</span><span class="ActionScriptBracket/Brace">.&lt;</span><span class="ActionScriptDefault_Text">b2Joint</span><span class="ActionScriptBracket/Brace">&gt;</span>;
+
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_bodyCount</span>:<span class="ActionScriptDefault_Text">int</span>;
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_jointCount</span>:<span class="ActionScriptDefault_Text">int</span>;
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_contactCount</span>:<span class="ActionScriptDefault_Text">int</span>;
+
+    <span class="ActionScriptReserved">private</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_bodyCapacity</span>:<span class="ActionScriptDefault_Text">int</span>;
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_contactCapacity</span>:<span class="ActionScriptDefault_Text">int</span>;
+    <span class="ActionScriptDefault_Text">b2internal</span> <span class="ActionScriptvar">var</span> <span class="ActionScriptDefault_Text">m_jointCapacity</span>:<span class="ActionScriptDefault_Text">int</span>;
+    
+<span class="ActionScriptBracket/Brace">}</span>;
+
+<span class="ActionScriptBracket/Brace">}</span>
+</pre></body>
+</html>
